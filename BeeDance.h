@@ -39,6 +39,7 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     void mouseWheelEvent(QWheelEvent *e);
 
   private:
+    size_t				        m_currentFrame; // is always the current frame (updated in paint and track)
     // --
     int                         m_futuresteps;
     int                         m_noncorrectionsteps;

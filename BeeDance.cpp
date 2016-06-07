@@ -117,6 +117,8 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
 }
 
 void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
+    m_currentFrame = frame; // TODO must this be protected from other threads?
+
     cv::Mat imgCopy = imgOriginal.clone();
 
     if(imgCopy.empty()) return;
@@ -128,6 +130,10 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
         TrackedObject o(id);
         o.add(frame, bb);
         m_trackedObjects.push_back(o);
+    }
+    // skipped through video
+    if(!m_trackedObjects[m_cto].hasValuesAtFrame(frame) && !m_trackedObjects[m_cto].hasValuesAtFrame(frame - 1)){
+        return;
     }
     //the video is playing or paused but the previous/next buttons were used
     if((getVideoMode() == GuiParam::VideoMode::Playing || abs(getCurrentFrameNumber() - static_cast<long>(frame)) == 0) && isTrackingActivated()) {
@@ -161,7 +167,7 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
                 m_cto = i;
             } else {
 //                if (static_cast<int>(frame) < m_trackedObjects[0].begin()) {
-                    m_cto = 0;
+//                    m_cto = 0;
 //                } else {
 //                    m_cto = m_trackedObjects.size() - 1;
 //                }
@@ -174,6 +180,8 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
 }
 
 void BeeDanceTracker::paint(size_t frame, ProxyMat & mat, const TrackingAlgorithm::View &) {
+    m_currentFrame = frame; // TODO must this be protected from other threads?
+
     if (m_path_showing) {
         drawPath(mat.getMat());
     }
@@ -207,12 +215,10 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
 //    if (m_start_of_tracking) return;
 
     //check if clicked on path
-    // THIS IS BULLSHIT
     m_mouseOverPath = -1;
     size_t maxTs = 0;
     for (auto o : m_trackedObjects) {
         maxTs = o.getLastFrameNumber().get() > maxTs ? o.getLastFrameNumber().get() : maxTs;
-//        maxTs = o.maximumFrameNumber() > maxTs ? o.maximumFrameNumber() : maxTs;
     }
 
     for (size_t frame = 0; frame < maxTs + 1; frame++) {
@@ -230,7 +236,11 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
 
     //check if left button is clicked
     if (e->button() == Qt::LeftButton && m_rectstat == RS_NOT_SET) {
-        auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(getCurrentFrameNumber());
+        if(!m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) {
+            auto bb = std::make_shared<BeeBox>();
+            m_trackedObjects[m_cto].add(m_currentFrame, bb);
+        }
+        auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame);
         currentBeeBox->x = e->x();
         currentBeeBox->y = e->y();
         m_rectstat = RS_INITIALIZE;
@@ -238,7 +248,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     }
     if (e->button() == Qt::LeftButton && m_rectstat == RS_SET) {
         int close = 10;
-        updatePoints(static_cast<int>(getCurrentFrameNumber()));
+        updatePoints(static_cast<int>(m_currentFrame));
 
         //check if mouse click happened inside the rectangle
         bool in = true;
@@ -272,9 +282,9 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     if (e->button() == Qt::RightButton) {
         if (m_mouseOverPath > -1) {
             if (m_mouseOverPath == m_cto) {
-                auto bb = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(getCurrentFrameNumber()));
-                TrackedObject o(getCurrentFrameNumber());
-                o.add(getCurrentFrameNumber(), bb);
+                auto bb = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
+                TrackedObject o(m_currentFrame);
+                o.add(m_currentFrame, bb);
                 m_trackedObjects[m_cto] = o;
             }
             else {
@@ -291,7 +301,8 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
 //    if (!(getVideoMode() == GuiParam::VideoMode::Paused || m_start_of_tracking)) return;
 //    if (m_start_of_tracking) return;
-    auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(getCurrentFrameNumber());
+    if(!m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
+    auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame);
 
     //what we do when we are scaling the bounding box
     if (m_rectstat == RS_INITIALIZE || m_rectstat == RS_SCALE) {
@@ -330,9 +341,9 @@ void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
         if (m_rectstat >= RS_SET) {
             m_rectstat = RS_SET;
             //a transformation of the bounding box starts a new path
-            m_changedPath = true;
+//            m_changedPath = true;
             changePath();
-            m_of_tracker->reset();
+//            m_of_tracker->reset();
             Q_EMIT update();
         }
     }
@@ -345,7 +356,7 @@ void BeeDanceTracker::mouseWheelEvent ( QWheelEvent *) {}
 */
 void BeeDanceTracker::drawPath(cv::Mat image){
 
-    int current = getCurrentFrameNumber();
+    int current = m_currentFrame;
     size_t maxTs = 0;
     for (auto o : m_trackedObjects) {
         maxTs = o.getLastFrameNumber().get() > maxTs ? o.getLastFrameNumber().get() : maxTs;
@@ -407,6 +418,11 @@ void BeeDanceTracker::drawRectangle(cv::Mat image, int frame)
 * update the corner points by calculating their current positions based on the centre, width, height and rotation of the mask
 */
 void BeeDanceTracker::updatePoints(int frame) {
+    if(!m_trackedObjects[m_cto].hasValuesAtFrame(frame)) {
+        // this happens after the video gets paused and getCurrentFrameNumber()
+        // returns currently painted frame + 1
+        return;
+    }
     auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(frame);
     
     int h = static_cast<int>(currentBeeBox->h / 2);
@@ -425,6 +441,9 @@ void BeeDanceTracker::updatePoints(int frame) {
 * creates a new path by copying the last waypoint from the previous one or reuses the last path if it is empty
 */
 void BeeDanceTracker::changePath(){
+    for(size_t i = m_trackedObjects[m_cto].getLastFrameNumber().get(); i > m_currentFrame; i--){
+        m_trackedObjects[m_cto].erase(i);
+    }
 //    if (m_changedPath) {
 //        BeeBox copy(m_trackedObjects[m_cto][getCurrentFrameNumber()]);
 //        auto toSave = BeeBox(copy);
@@ -452,9 +471,11 @@ void BeeDanceTracker::changePath(){
 * enables/disables fixed ratio of the bounding box
 */
 void BeeDanceTracker::fixRatio() {
-    auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(getCurrentFrameNumber());
-    if (!m_fixedratio && currentBeeBox->w != 0) {
-        m_ratio = currentBeeBox->h / currentBeeBox->w;
+    if(m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) {
+        auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame);
+        if (!m_fixedratio && currentBeeBox->w != 0) {
+            m_ratio = currentBeeBox->h / currentBeeBox->w;
+        }
     }
     m_fixedratio = !m_fixedratio;
     m_fixedratioEdit->setChecked(m_fixedratio);
