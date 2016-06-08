@@ -55,8 +55,12 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     float                       m_ratio;
 
     std::vector<cv::Point2i>    m_pts;
-    cv::Point2i                 m_rot1;
-    cv::Point2i                 m_rot2;
+
+    cv::Point2i                 m_last_rotation_point;
+    cv::Point2i                 m_arrow1;
+    cv::Point2i                 m_arrow2;
+    cv::Point2i                 m_arrow3;
+    cv::Point2i                 m_arrow4;
 
     int                         m_mdx;
     int                         m_mdy;

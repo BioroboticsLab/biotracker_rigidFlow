@@ -246,6 +246,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
         m_rectstat = RS_INITIALIZE;
         currentBeeBox->phi = 0;
     }
+
     if (e->button() == Qt::LeftButton && m_rectstat == RS_SET) {
         int close = 10;
         updatePoints(static_cast<int>(m_currentFrame));
@@ -273,10 +274,6 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
             m_mdy = e->y();
             m_rectstat = RS_DRAG;
         }
-        //rotate mode
-        if (m_rectstat == RS_SET && abs(e->x() - m_rot2.x) <= close && abs(e->y() - m_rot2.y) <= close) {
-            m_rectstat = RS_ROTATE;
-        }
     }
     //deletes a previously selected path that is right-clicked
     if (e->button() == Qt::RightButton) {
@@ -292,6 +289,26 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                 if (m_cto > m_mouseOverPath) m_cto -= 1;
             }
             m_mouseOverPath = -1;
+        } else {
+            updatePoints(static_cast<int>(m_currentFrame));
+
+            //check if mouse click happened inside the rectangle
+            bool in = true;
+            for (int i = 0; i < 4; i++){
+                cv::Point2i pd = m_pts[(i + 1) % 4] - m_pts[i];
+                pd = cv::Point2i(-pd.y, pd.x);
+                cv::Point md = cv::Point2i(e->x() - m_pts[i].x, e->y() - m_pts[i].y);
+                if (pd.dot(md) > 0){
+                    in = false;
+                    break;
+                }
+            }
+            if (m_rectstat == RS_SET && in && m_mouseOverPath == -1){
+            //rotate mode
+//            if (m_rectstat == RS_SET && abs(e->x() - m_rot2.x) <= close && abs(e->y() - m_rot2.y) <= close) {
+                m_last_rotation_point = cv::Point2i(static_cast<int>(e->x()), static_cast<int>(e->y()));
+                m_rectstat = RS_ROTATE;
+            }
         }
         Q_EMIT update();
     }
@@ -327,7 +344,12 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
     }
         //what we do when we are rotating the bounding box
     else if (m_rectstat == RS_ROTATE) {
-        currentBeeBox->phi = static_cast<float>(atan2(e->x() - currentBeeBox->x, e->y() - currentBeeBox->y) * 180 / 3.1415);
+        auto tmpLR = cv::Point2i(static_cast<int>(m_last_rotation_point.x - currentBeeBox->x),
+                            static_cast<int>(m_last_rotation_point.y - currentBeeBox->y));
+        auto tmpE = cv::Point2i(static_cast<int>(e->x() - currentBeeBox->x), static_cast<int>(e->y() - currentBeeBox->y));
+        float phiTemp = static_cast<float>(atan2(tmpLR.y, tmpLR.x) * 180 / M_PI) - static_cast<float>(atan2(tmpE.y, tmpE.x) * 180 / M_PI);
+        currentBeeBox->phi = static_cast<float>(fmod(currentBeeBox->phi + phiTemp, 360));
+        m_last_rotation_point = cv::Point2i(static_cast<int>(e->x()), static_cast<int>(e->y()));
     }
     Q_EMIT update();
 }
@@ -340,10 +362,13 @@ void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
     if (e->button() == Qt::LeftButton) {
         if (m_rectstat >= RS_SET) {
             m_rectstat = RS_SET;
-            //a transformation of the bounding box starts a new path
-//            m_changedPath = true;
             changePath();
-//            m_of_tracker->reset();
+            Q_EMIT update();
+        }
+    } else if (e->button() == Qt::RightButton) {
+        if (m_rectstat == RS_ROTATE) {
+            m_rectstat = RS_SET;
+            changePath();
             Q_EMIT update();
         }
     }
@@ -407,10 +432,10 @@ void BeeDanceTracker::drawRectangle(cv::Mat image, int frame)
             cv::circle(image, cv::Point2i(m_pts[i].x, m_pts[i].y), srad, dotcolour1, -2, CV_AA);
             cv::circle(image, cv::Point2i(m_pts[i].x, m_pts[i].y), srad - 2, dotcolour2, -2, CV_AA);
         }
-        //handle for rotation
-        cv::line(image, m_rot1, m_rot2, colour, 1, CV_AA);
-        cv::circle(image, m_rot2, srad, dotcolour1, -2, CV_AA);
-        cv::circle(image, m_rot2, srad - 2, dotcolour2, -2, CV_AA);
+        // direction indicator
+        cv::line(image, m_arrow1, m_arrow2, colour, 1, CV_AA);
+        cv::line(image, m_arrow1, m_arrow3, colour, 1, CV_AA);
+        cv::line(image, m_arrow1, m_arrow4, colour, 1, CV_AA);
     }
 }
 
@@ -426,14 +451,19 @@ void BeeDanceTracker::updatePoints(int frame) {
     auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(frame);
     
     int h = static_cast<int>(currentBeeBox->h / 2);
-    float p = static_cast<float>(currentBeeBox->phi * 3.1415 / 180);
+    int w = static_cast<int>(currentBeeBox->w / 2);
+    float p = static_cast<float>(currentBeeBox->phi * M_PI / 180);
 
     m_pts = currentBeeBox->getCornerPoints();
 
-    m_rot1 = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h),
-                         static_cast<int>(currentBeeBox->y + cos(p) * h));
-    m_rot2 = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * (h*1.5 < 15 ? 15 : h*1.5)),
-                         static_cast<int>(currentBeeBox->y + cos(p) * (h*1.5 < 15 ? 15 : h*1.5)));
+    m_arrow1 = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h * 0.6),
+                           static_cast<int>(currentBeeBox->y + cos(p) * h * 0.6));
+    m_arrow2 = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h * -0.6),
+                           static_cast<int>(currentBeeBox->y + cos(p) * h * -0.6));
+    m_arrow3 = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h * 0.6 + sin(p - (135*M_PI/180)) * w * 0.6),
+                           static_cast<int>(currentBeeBox->y + cos(p) * h * 0.6 + cos(p - (135*M_PI/180)) * w * 0.6));
+    m_arrow4 = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h * 0.6 + sin(p + (135*M_PI/180)) * w * 0.6),
+                           static_cast<int>(currentBeeBox->y + cos(p) * h * 0.6 + cos(p + (135*M_PI/180)) * w * 0.6));
 }
 
 
