@@ -57,10 +57,6 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     std::vector<cv::Point2i>    m_pts;
 
     cv::Point2i                 m_last_rotation_point;
-    cv::Point2i                 m_arrow1;
-    cv::Point2i                 m_arrow2;
-    cv::Point2i                 m_arrow3;
-    cv::Point2i                 m_arrow4;
 
     int                         m_mdx;
     int                         m_mdy;
@@ -71,7 +67,6 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
 
     OFTracker*                  m_of_tracker;
     int                         m_cto;
-    bool                        m_changedPath;
     bool                        m_start_of_tracking;
     int                         m_mouseOverPath;
 
@@ -96,5 +91,6 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     void drawRectangle(cv::Mat image, int frame);
     void forcePointIntoPicture(cv::Point2i & point, cv::Mat &image);
     void updatePoints(int frame);
+    std::vector<cv::Point2i> getArrowPoints(int frame, int cto);
     void changePath();
 };
