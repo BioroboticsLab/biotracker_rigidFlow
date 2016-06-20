@@ -20,8 +20,8 @@
 #define RS_DRAG 4
 #define RS_ROTATE 5
 
-#define BOX_COLOUR 255, 30, 20
-#define BOX_COLOUR_INACTIVE 190, 190, 190
+#define BOX_COLOR 20, 30, 255
+#define BOX_COLOR_INACTIVE 190, 190, 190
 #define PAST_TRACK_COLOR 70, 240, 15
 #define FUTURE_TRACK_COLOR 35, 120, 8
 
@@ -47,6 +47,7 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
     m_updatefeatures(false),
     m_fixedratio(true),
     m_path_showing(false),
+    m_path_changed(false),
     m_ratio(2.5),
     m_rectstat(RS_NOT_SET),
     m_of_tracker(new OverlapOFTracker()),
@@ -142,10 +143,11 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
         if (!m_trackedObjects[m_cto].hasValuesAtFrame(frame)) {
             auto o = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1));
             m_trackedObjects[m_cto].push_back(o);
-        } else if (m_trackedObjects[m_cto].hasValuesAtFrame(frame - 1)) {
+        } else if (m_trackedObjects[m_cto].hasValuesAtFrame(frame - 1) && !m_path_changed) {
             auto o = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1));
             m_trackedObjects[m_cto].add(frame, o);
         }
+        m_path_changed = false;
         //calculate movement for next step
         m_of_tracker->next(imgCopy, *m_trackedObjects[m_cto].get<BeeBox>(frame));
     }
@@ -170,21 +172,19 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
 }
 
 void BeeDanceTracker::paint(size_t frame, ProxyMat & mat, const TrackingAlgorithm::View &) {
+
+}
+
+void BeeDanceTracker::paintOverlay(size_t frame, QPainter *painter, const View &) {
     m_currentFrame = frame; // TODO must this be protected from other threads?
 
     if (m_path_showing) {
-        drawPath(mat.getMat());
+        drawPath(painter);
     }
-//    if (m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(static_cast<int>(frame))) {
-//        return;
-//    }
 
     if (m_rectstat >= RS_SET) {
-        drawRectangle(mat.getMat(), static_cast<int>(frame));
+        drawRectangle(painter, static_cast<int>(frame));
     }
-}
-
-void BeeDanceTracker::paintOverlay(size_t currentFrame, QPainter *painter, const View &) {
 
 }
 
@@ -240,7 +240,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
         }
 
         if (m_rectstat == RS_SET) {
-            int close = 10;
+            int close = 8;
 
             //check if mouse click happened inside any rectangle
             bool in = false;
@@ -366,6 +366,7 @@ void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
     if (e->button() == Qt::LeftButton && e->modifiers() != Qt::ControlModifier) {
         if (m_rectstat >= RS_SET) {
             m_rectstat = RS_SET;
+            m_path_changed = true;
             changePath();
             Q_EMIT update();
         }
@@ -377,6 +378,7 @@ void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
     } else if (e->button() == Qt::RightButton) {
         if (m_rectstat == RS_ROTATE) {
             m_rectstat = RS_SET;
+            m_path_changed = true;
             changePath();
             Q_EMIT update();
         }
@@ -388,7 +390,7 @@ void BeeDanceTracker::mouseWheelEvent ( QWheelEvent *) {}
 /*
 * draws every path currently in the paths vector
 */
-void BeeDanceTracker::drawPath(cv::Mat image){
+void BeeDanceTracker::drawPath(QPainter *painter){
     if (m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
 
     auto o = m_trackedObjects[m_cto];
@@ -397,12 +399,14 @@ void BeeDanceTracker::drawPath(cv::Mat image){
             BeeBox point1 = o.get<BeeBox>(frame - 1);
             BeeBox point2 = o.get<BeeBox>(frame);
 
-            cv::Point2i p1(static_cast<int>(point1.x), static_cast<int>(point1.y));
-            cv::Point2i p2(static_cast<int>(point2.x), static_cast<int>(point2.y));
+            QPoint p1 = QPoint(static_cast<int>(point1.x), static_cast<int>(point1.y));
+            QPoint p2 = QPoint(static_cast<int>(point2.x), static_cast<int>(point2.y));
             if (frame > m_currentFrame) {
-                cv::line(image, p1, p2, cv::Scalar(FUTURE_TRACK_COLOR), m_cto == m_mouseOverPath? 2 : 1);
+                painter->setPen(QColor(FUTURE_TRACK_COLOR));
+                painter->drawLine(p1, p2);
             } else {
-                cv::line(image, p1, p2, cv::Scalar(PAST_TRACK_COLOR), m_cto == m_mouseOverPath ? 2 : 1);
+                painter->setPen(QColor(PAST_TRACK_COLOR));
+                painter->drawLine(p1, p2);
             }
         }
     }
@@ -411,39 +415,71 @@ void BeeDanceTracker::drawPath(cv::Mat image){
 /*
 * this will draw the tracked area's bounding box and its handles onto the display image
 */
-void BeeDanceTracker::drawRectangle(cv::Mat image, int frame)
-{
+void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
     for (auto o : m_trackedObjects) {
         if (o.hasValuesAtFrame(static_cast<int>(frame))) {
-            cv::Scalar colour = static_cast<int>(o.getId()) == m_cto?cv::Scalar(BOX_COLOUR):cv::Scalar(BOX_COLOUR_INACTIVE);
+            QPen pen = QPen(static_cast<int>(o.getId())==m_cto?QColor(BOX_COLOR):QColor(BOX_COLOR_INACTIVE));
+            pen.setWidthF(1.5);
+            painter->setPen(pen);
 
-            std::vector<cv::Point2i> box = o.get<BeeBox>(frame)->getCornerPoints();
+            auto currentBeeBox = o.get<BeeBox>(frame);
+
+            std::vector<cv::Point2i> box = currentBeeBox->getCornerPoints();
 
             //draw the bounding box
             for (int i = 0; i < 4; i++) {
-                line(image, box[i], box[(i + 1) % 4], colour, 1, CV_AA);
+                painter->drawLine(box[i].x, box[i].y, box[(i + 1) % 4].x, box[(i + 1) % 4].y);
             }
 
-            std::vector<cv::Point2i> arrow = getArrowPoints(frame, o.getId());
+            std::vector<QPointF> arrow = getArrowPoints(frame, o.getId());
             // direction indicator
-            cv::line(image, arrow[0], arrow[1], colour, 1, CV_AA);
-            cv::line(image, arrow[0], arrow[2], colour, 1, CV_AA);
-            cv::line(image, arrow[0], arrow[3], colour, 1, CV_AA);
+            painter->drawLine(arrow[0], arrow[1]);
+            painter->drawLine(arrow[0], arrow[2]);
+            painter->drawLine(arrow[0], arrow[3]);
+
+            // draw id
+            QPointF textCenter = QPointF(currentBeeBox->x + sin(currentBeeBox->phi* M_PI / 180) * currentBeeBox->h * -0.4,
+                                         currentBeeBox->y + cos(currentBeeBox->phi* M_PI / 180) * currentBeeBox->h * -0.4);
+            int textheight = currentBeeBox->h*0.15>16.0?16:static_cast<int>(currentBeeBox->h * 0.15);
+            textheight = textheight>0?textheight:1;
+
+            QFont font = painter->font();
+            font.setPointSize(textheight);
+            painter->setFont(font);
+
+            painter->translate(textCenter);
+            painter->rotate(-currentBeeBox->phi);
+
+            if(currentBeeBox->phi > 90 || currentBeeBox->phi < -90 || currentBeeBox->phi > 270){
+                painter->rotate(180);
+            }
+
+            painter->drawText(QRectF(-currentBeeBox->w/2,-currentBeeBox->h*0.15/2,currentBeeBox->w,currentBeeBox->h*0.15),
+                              Qt::AlignCenter, std::to_string(o.getId()).c_str());
+
+            if(currentBeeBox->phi > 90 || currentBeeBox->phi < -90 || currentBeeBox->phi > 270){
+                painter->rotate(-180);
+            }
+
+            painter->rotate(currentBeeBox->phi);
+            painter->translate(-textCenter);
 
             if (static_cast<int>(o.getId()) == m_cto) {
                 //make sure the corner points are up to date
                 updatePoints(frame);
 
-                cv::Scalar dotcolour1 = cv::Scalar(0, 0, 0);
-                cv::Scalar dotcolour2 = cv::Scalar(255, 230, 230);
+                QPen dotPen = QPen(QColor(0,0,0));
+                pen.setWidth(2);
+                QBrush dotBrush = QBrush(QColor(230,230,255));
 
-                int srad = 8;
+                int srad = 6;
                 //disable transformation during playback
                 if (getVideoMode() != GuiParam::VideoMode::Playing) {
                     //scaling handles
                     for (int i = 0; i < 4; i++) {
-                        cv::circle(image, cv::Point2i(m_pts[i].x, m_pts[i].y), srad, dotcolour1, -2, CV_AA);
-                        cv::circle(image, cv::Point2i(m_pts[i].x, m_pts[i].y), srad - 2, dotcolour2, -2, CV_AA);
+                        painter->setPen(dotPen);
+                        painter->setBrush(dotBrush);
+                        painter->drawEllipse(QPoint(m_pts[i].x, m_pts[i].y), srad, srad);
                     }
                 }
             }
@@ -469,25 +505,23 @@ void BeeDanceTracker::updatePoints(int frame) {
 /*
  * calculates the points needed to draw the arrow inside the box
  */
-std::vector<cv::Point2i> BeeDanceTracker::getArrowPoints(int frame, int cto) {
+std::vector<QPointF> BeeDanceTracker::getArrowPoints(int frame, int cto) {
     if(!m_trackedObjects[cto].hasValuesAtFrame(frame)) {
-        return std::vector<cv::Point2i>(4);
+        return std::vector<QPointF>(4);
     }
     auto currentBeeBox = m_trackedObjects[cto].get<BeeBox>(frame);
 
-    int h = static_cast<int>(currentBeeBox->h / 2);
-    int w = static_cast<int>(currentBeeBox->w / 2);
-    float p = static_cast<float>(currentBeeBox->phi * M_PI / 180);
+    double h = currentBeeBox->h / 2;
+    double w = currentBeeBox->w / 2;
+    double p = currentBeeBox->phi * M_PI / 180;
 
-    std::vector<cv::Point2i> arrow(4);
-    arrow[0] = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h * 0.6),
-                           static_cast<int>(currentBeeBox->y + cos(p) * h * 0.6));
-    arrow[1] = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h * -0.6),
-                           static_cast<int>(currentBeeBox->y + cos(p) * h * -0.6));
-    arrow[2] = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h * 0.6 + sin(p - (135*M_PI/180)) * w * 0.6),
-                           static_cast<int>(currentBeeBox->y + cos(p) * h * 0.6 + cos(p - (135*M_PI/180)) * w * 0.6));
-    arrow[3] = cv::Point2i(static_cast<int>(currentBeeBox->x + sin(p) * h * 0.6 + sin(p + (135*M_PI/180)) * w * 0.6),
-                           static_cast<int>(currentBeeBox->y + cos(p) * h * 0.6 + cos(p + (135*M_PI/180)) * w * 0.6));
+    std::vector<QPointF> arrow(4);
+    arrow[0] = QPointF(currentBeeBox->x + sin(p) * h * 0.6, currentBeeBox->y + cos(p) * h * 0.6);
+    arrow[1] = QPointF(currentBeeBox->x + sin(p) * h * -0.6, currentBeeBox->y + cos(p) * h * -0.6);
+    arrow[2] = QPointF(currentBeeBox->x + sin(p) * h * 0.6 + sin(p - (135*M_PI/180)) * w * 0.6,
+                       currentBeeBox->y + cos(p) * h * 0.6 + cos(p - (135*M_PI/180)) * w * 0.6);
+    arrow[3] = QPointF(currentBeeBox->x + sin(p) * h * 0.6 + sin(p + (135*M_PI/180)) * w * 0.6,
+                       currentBeeBox->y + cos(p) * h * 0.6 + cos(p + (135*M_PI/180)) * w * 0.6);
     return arrow;
 }
 

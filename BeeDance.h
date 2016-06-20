@@ -50,6 +50,7 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
 
     bool                        m_fixedratio;
     bool                        m_path_showing;
+    bool                        m_path_changed;
 
     float                       m_ratio;
 
@@ -84,10 +85,10 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     void enableCorrection();
     void showPath();
 
-    void drawPath(cv::Mat image);
-    void drawRectangle(cv::Mat image, int frame);
+    void drawPath(QPainter *painter);
+    void drawRectangle(QPainter *painter, int frame);
     void forcePointIntoPicture(cv::Point2i & point, cv::Mat &image);
     void updatePoints(int frame);
-    std::vector<cv::Point2i> getArrowPoints(int frame, int cto);
+    std::vector<QPointF> getArrowPoints(int frame, int cto);
     void changePath();
 };
