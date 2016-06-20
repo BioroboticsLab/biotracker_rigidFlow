@@ -18,7 +18,7 @@ private:
 public:
 	SingleOFTracker();
 	~SingleOFTracker();
-	void configure(int n, bool draw_features = false);
+	void configure(int n);
 	virtual void init(cv::Mat &frame) override;
 	virtual void reset() override;
 

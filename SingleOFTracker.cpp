@@ -18,10 +18,10 @@ SingleOFTracker::~SingleOFTracker()
 	deInit();
 }
 
-void SingleOFTracker::configure(int n, bool draw_features)
+void SingleOFTracker::configure(int n)
 {
 	if(n != nfeatures) need_features = true;
-	OFTracker::configure(n, false, -1, draw_features);
+	OFTracker::configure(n, false, -1);
 }
 
 void SingleOFTracker::init(cv::Mat &frame)

@@ -50,7 +50,6 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
 
     bool                        m_fixedratio;
     bool                        m_path_showing;
-    bool                        m_show_features;
 
     float                       m_ratio;
 
@@ -84,8 +83,6 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     void changeParams();
     void enableCorrection();
     void showPath();
-    void showFeatures();
-    void playOnly();
 
     void drawPath(cv::Mat image);
     void drawRectangle(cv::Mat image, int frame);

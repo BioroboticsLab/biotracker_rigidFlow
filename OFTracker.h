@@ -25,8 +25,6 @@ private:
 	bool use_correction;
 	int correct_in_X_frames;
 	int num_of_non_correction_frames;
-	
-	bool draw_features;
 
 public:
 	virtual ~OFTracker();
@@ -37,7 +35,7 @@ public:
 
 protected:
 	OFTracker();
-	void configure(int n, bool use_correction, int non_correction_steps = -1, bool draw_features = false);
+	void configure(int n, bool use_correction, int non_correction_steps = -1);
 	
 	
 	bool setFrame(cv::Mat &frame);

@@ -21,10 +21,10 @@ OverlapOFTracker::~OverlapOFTracker()
 	deInit();
 }
 
-void OverlapOFTracker::configure(int future_steps, int non_correction_steps, int features, bool ncs_enabled, bool draw_features)
+void OverlapOFTracker::configure(int future_steps, int non_correction_steps, int features, bool ncs_enabled)
 {
 	sets = future_steps;
-	OFTracker::configure(features/future_steps, ncs_enabled, non_correction_steps, draw_features);
+	OFTracker::configure(features/future_steps, ncs_enabled, non_correction_steps);
 }
 
 /*

@@ -47,7 +47,6 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
     m_updatefeatures(false),
     m_fixedratio(true),
     m_path_showing(false),
-    m_show_features(true),
     m_ratio(2.5),
     m_rectstat(RS_NOT_SET),
     m_of_tracker(new OverlapOFTracker()),
@@ -107,12 +106,6 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
                      this, &BeeDanceTracker::showPath);
     layout->addRow("Show Path", showPath);
 
-    auto *showFeatures = new QCheckBox();
-    showFeatures->setChecked(m_show_features);
-    QObject::connect(showFeatures, &QCheckBox::stateChanged,
-                     this, &BeeDanceTracker::showFeatures);
-    layout->addRow("Show Features", showFeatures);
-
     ui->setLayout(layout);
 }
 
@@ -137,11 +130,11 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
         if (!m_of_tracker->isInitialized()) {
             //semi-automatic or automatic tracking
             if (!m_automatictracking) {
-                reinterpret_cast<SingleOFTracker*>(m_of_tracker)->configure(m_features, m_show_features);
+                reinterpret_cast<SingleOFTracker*>(m_of_tracker)->configure(m_features);
                 reinterpret_cast<SingleOFTracker*>(m_of_tracker)->init(imgCopy);
             }
             else {
-                reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->configure(m_futuresteps, m_noncorrectionsteps, m_features, m_correction_enabled, m_show_features);
+                reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->configure(m_futuresteps, m_noncorrectionsteps, m_features, m_correction_enabled);
                 reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->init(imgCopy);
             }
         }
@@ -179,9 +172,9 @@ void BeeDanceTracker::paint(size_t frame, ProxyMat & mat, const TrackingAlgorith
     if (m_path_showing) {
         drawPath(mat.getMat());
     }
-    if (m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(static_cast<int>(frame))) {
-        return;
-    }
+//    if (m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(static_cast<int>(frame))) {
+//        return;
+//    }
 
     if (m_rectstat >= RS_SET) {
         drawRectangle(mat.getMat(), static_cast<int>(frame));
@@ -207,7 +200,6 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
 //    if (!(getVideoMode() == GuiParam::VideoMode::Paused || m_start_of_tracking)) return;
 //    if (m_start_of_tracking) return;
-
     //check if clicked on path
     m_mouseOverPath = -1;
     size_t maxTs = 0;
@@ -285,6 +277,8 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     }
     //deletes a previously selected path that is right-clicked
     else if (e->button() == Qt::RightButton) {
+        if(m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
+
         if (m_mouseOverPath > -1 && m_path_showing) {
             if (m_mouseOverPath == m_cto) {
                 auto bb = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
@@ -325,7 +319,7 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
 //    if (!(getVideoMode() == GuiParam::VideoMode::Paused || m_start_of_tracking)) return;
 //    if (m_start_of_tracking) return;
-    if(!m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
+    if(m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
     auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame);
 
     //what we do when we are scaling the bounding box
@@ -531,21 +525,6 @@ void BeeDanceTracker::fixRatio() {
 */
 void BeeDanceTracker::showPath() {
     m_path_showing = !m_path_showing;
-    Q_EMIT update();
-}
-
-/*
-* enables/disables drawing of the tracked features
-*/
-void BeeDanceTracker::showFeatures() {
-    m_show_features = !m_show_features;
-
-    if (!m_automatictracking) {
-        reinterpret_cast<SingleOFTracker*>(m_of_tracker)->configure(m_features, m_show_features);
-    } else {
-        reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->configure(m_futuresteps, m_noncorrectionsteps,
-                                                                   m_features, m_correction_enabled, m_show_features);
-    }
     Q_EMIT update();
 }
 

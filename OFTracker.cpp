@@ -14,8 +14,7 @@ term_crit(CV_TERMCRIT_ITER | CV_TERMCRIT_EPS, 40, 0.03),
 initialized(false),
 use_correction(false),
 correct_in_X_frames(0),
-num_of_non_correction_frames(0),
-draw_features(false)
+num_of_non_correction_frames(0)
 {
 }
 
@@ -28,7 +27,7 @@ OFTracker::~OFTracker()
 * Configures the tracker.
 * Can be called at any time.
 */
-void OFTracker::configure(int n, bool use_correction, int non_correction_steps, bool draw_features)
+void OFTracker::configure(int n, bool use_correction, int non_correction_steps)
 {
 	nfeatures = n;
 	
@@ -39,8 +38,6 @@ void OFTracker::configure(int n, bool use_correction, int non_correction_steps, 
 		num_of_non_correction_frames = non_correction_steps;
 		correct_in_X_frames = non_correction_steps;
 	}
-	
-	this->draw_features = draw_features;
 }
 
 /*
@@ -194,8 +191,6 @@ void OFTracker::next(cv::Mat &frame, BeeBox &bb)
 		{
 			hough->fill(p1 - center, p2 - center, 1);
 			i++;
-
-			if(draw_features) cv::line(frame, p1, p2, cv::Scalar(FEATURE_COLOR));
 		}
 	}
 
