@@ -142,6 +142,9 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
         if (!m_trackedObjects[m_cto].hasValuesAtFrame(frame)) {
             auto o = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1));
             m_trackedObjects[m_cto].push_back(o);
+        } else if (m_trackedObjects[m_cto].hasValuesAtFrame(frame - 1)) {
+            auto o = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1));
+            m_trackedObjects[m_cto].add(frame, o);
         }
         //calculate movement for next step
         m_of_tracker->next(imgCopy, *m_trackedObjects[m_cto].get<BeeBox>(frame));
@@ -494,7 +497,7 @@ std::vector<cv::Point2i> BeeDanceTracker::getArrowPoints(int frame, int cto) {
 */
 void BeeDanceTracker::changePath(){
     for(size_t i = m_trackedObjects[m_cto].getLastFrameNumber().get(); i > m_currentFrame; i--){
-        m_trackedObjects[m_cto].erase(i);
+//        m_trackedObjects[m_cto].erase(i);
     }
 }
 
