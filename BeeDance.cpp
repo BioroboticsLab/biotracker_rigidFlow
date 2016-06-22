@@ -111,7 +111,7 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
 }
 
 void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
-    m_currentFrame = frame; // TODO must this be protected from other threads?
+    m_currentFrame = frame;
 
     cv::Mat imgCopy = imgOriginal.clone();
 
@@ -123,60 +123,38 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
     if(!m_trackedObjects[m_cto].hasValuesAtFrame(frame) && !m_trackedObjects[m_cto].hasValuesAtFrame(frame - 1)){
         return;
     }
-    //the video is playing or paused but the previous/next buttons were used
-    if((getVideoMode() == GuiParam::VideoMode::Playing || abs(getCurrentFrameNumber() - static_cast<long>(frame)) == 0) && isTrackingActivated()) {
-        if (m_start_of_tracking) {
-            m_start_of_tracking = false;
-        }
-        if (!m_of_tracker->isInitialized()) {
-            //semi-automatic or automatic tracking
-            if (!m_automatictracking) {
-                reinterpret_cast<SingleOFTracker*>(m_of_tracker)->configure(m_features);
-                reinterpret_cast<SingleOFTracker*>(m_of_tracker)->init(imgCopy);
-            }
-            else {
-                reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->configure(m_futuresteps, m_noncorrectionsteps, m_features, m_correction_enabled);
-                reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->init(imgCopy);
-            }
-        }
-        //copy BeeBox from previous frame
-        if (!m_trackedObjects[m_cto].hasValuesAtFrame(frame)) {
-            auto o = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1));
-            m_trackedObjects[m_cto].push_back(o);
-        } else if (m_trackedObjects[m_cto].hasValuesAtFrame(frame - 1) && !m_path_changed) {
-            auto o = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1));
-            m_trackedObjects[m_cto].add(frame, o);
-        }
-        m_path_changed = false;
-        //calculate movement for next step
-        m_of_tracker->next(imgCopy, *m_trackedObjects[m_cto].get<BeeBox>(frame));
+
+    if (m_start_of_tracking) {
+        m_start_of_tracking = false;
     }
-    //the video is paused or playing in playback mode
-//    else if (getVideoMode() == GuiParam::VideoMode::Paused || (getVideoMode() == GuiParam::VideoMode::Playing && !isTrackingActivated())) {
-    else {
-        for (uint i = 0; i < m_trackedObjects.size(); i++) {
-            if (m_trackedObjects[i].hasValuesAtFrame(frame)) {
-                m_cto = i;
-            } else {
-//                if (static_cast<int>(frame) < m_trackedObjects[0].begin()) {
-//                    m_cto = 0;
-//                } else {
-//                    m_cto = m_trackedObjects.size() - 1;
-//                }
-            }
-            if (isTrackingActivated()) {
-                m_of_tracker->reset();
-            }
+    if (!m_of_tracker->isInitialized()) {
+        //semi-automatic or automatic tracking
+        if (!m_automatictracking) {
+            reinterpret_cast<SingleOFTracker*>(m_of_tracker)->configure(m_features);
+            reinterpret_cast<SingleOFTracker*>(m_of_tracker)->init(imgCopy);
+        }
+        else {
+            reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->configure(m_futuresteps, m_noncorrectionsteps, m_features, m_correction_enabled);
+            reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->init(imgCopy);
         }
     }
+    //copy BeeBox from previous frame
+    if (!m_trackedObjects[m_cto].hasValuesAtFrame(frame)) {
+        auto o = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1));
+        m_trackedObjects[m_cto].push_back(o);
+    } else if (m_trackedObjects[m_cto].hasValuesAtFrame(frame - 1) && !m_path_changed) {
+        auto o = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1));
+        m_trackedObjects[m_cto].add(frame, o);
+    }
+    m_path_changed = false;
+    //calculate movement for next step
+    m_of_tracker->next(imgCopy, *m_trackedObjects[m_cto].get<BeeBox>(frame));
 }
 
-void BeeDanceTracker::paint(size_t frame, ProxyMat & mat, const TrackingAlgorithm::View &) {
-
-}
+void BeeDanceTracker::paint(size_t , ProxyMat & , const TrackingAlgorithm::View &) { }
 
 void BeeDanceTracker::paintOverlay(size_t frame, QPainter *painter, const View &) {
-    m_currentFrame = frame; // TODO must this be protected from other threads?
+    m_currentFrame = frame;
 
     if (m_path_showing) {
         drawPath(painter);
@@ -193,30 +171,23 @@ void BeeDanceTracker::paintOverlay(size_t frame, QPainter *painter, const View &
 
 // ============== Keyboard ==================
 
-void BeeDanceTracker::keyPressEvent(QKeyEvent *ev) {
-
-}
+void BeeDanceTracker::keyPressEvent(QKeyEvent *) { }
 
 // ============== Mouse ==================
 
 void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
-//    if (!(getVideoMode() == GuiParam::VideoMode::Paused || m_start_of_tracking)) return;
-//    if (m_start_of_tracking) return;
+//    if (getVideoMode() != GuiParam::VideoMode::Paused) return;
     //check if clicked on path
     m_mouseOverPath = -1;
-    size_t maxTs = 0;
-    for (auto o : m_trackedObjects) {
-        maxTs = o.getLastFrameNumber().get() > maxTs ? o.getLastFrameNumber().get() : maxTs;
-    }
 
-    for (size_t frame = 0; frame < maxTs + 1; frame++) {
-        for (size_t i = 0; i < m_trackedObjects.size(); i++) {
-            auto o = m_trackedObjects[i];
-            if (o.hasValuesAtFrame(frame)) {
-                BeeBox point = o.get<BeeBox>(frame);
+    if(m_cto < static_cast<int>(m_trackedObjects.size())) {
+        auto currentPath = m_trackedObjects[m_cto];
+        for (size_t frame = 0; frame < currentPath.getLastFrameNumber().get() + 1; frame++) {
+            if (currentPath.hasValuesAtFrame(frame)) {
+                BeeBox point = currentPath.get<BeeBox>(frame);
                 if (abs(e->x() - static_cast<int>(point.x)) <= 2 && abs(e->y() - static_cast<int>(point.y)) <= 2) {
-                    m_mouseOverPath = i;
+                    m_mouseOverPath = m_cto;
                     break;
                 }
             }
@@ -225,7 +196,8 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
 
     //check if left button is clicked
     if (e->button() == Qt::LeftButton) {
-        if (e->modifiers() == Qt::ControlModifier) { // && m_rectstat == RS_NOT_SET) {
+        // add new BeeBox
+        if (e->modifiers() == Qt::ControlModifier) {
             m_cto = m_trackedObjects.size();
 
             auto bb = std::make_shared<BeeBox>();
@@ -282,17 +254,12 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     else if (e->button() == Qt::RightButton) {
         if(m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
 
-        if (m_mouseOverPath > -1 && m_path_showing) {
-            if (m_mouseOverPath == m_cto) {
-                auto bb = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
-                TrackedObject o(m_currentFrame);
-                o.add(m_currentFrame, bb);
-                m_trackedObjects[m_cto] = o;
-            }
-            else {
-                m_trackedObjects.erase(m_trackedObjects.begin() + m_mouseOverPath);
-                if (m_cto > m_mouseOverPath) m_cto -= 1;
-            }
+        if (m_mouseOverPath == m_cto && m_path_showing) {
+            auto bb = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
+            TrackedObject o(m_cto);
+            o.add(m_currentFrame, bb);
+            m_trackedObjects[m_cto] = o;
+
             m_mouseOverPath = -1;
         } else {
             updatePoints(static_cast<int>(m_currentFrame));
@@ -320,8 +287,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
 
 void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
-//    if (!(getVideoMode() == GuiParam::VideoMode::Paused || m_start_of_tracking)) return;
-//    if (m_start_of_tracking) return;
+//    if (getVideoMode() != GuiParam::VideoMode::Paused) return;
     if(m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
     auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame);
 
@@ -336,6 +302,7 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
 
         if (m_fixedratio) currentBeeBox->w = currentBeeBox->h / m_ratio;
         else currentBeeBox->w = 2 * abs(y - static_cast<int>(currentBeeBox->y));
+        m_path_changed = true;
 
         Q_EMIT update();
     }
@@ -345,6 +312,7 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
         currentBeeBox->y += e->y() - m_mdy;
         m_mdx = e->x();
         m_mdy = e->y();
+        m_path_changed = true;
     }
         //what we do when we are rotating the bounding box
     else if (m_rectstat == RS_ROTATE) {
@@ -354,20 +322,18 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
         float phiTemp = static_cast<float>(atan2(tmpLR.y, tmpLR.x) * 180 / M_PI) - static_cast<float>(atan2(tmpE.y, tmpE.x) * 180 / M_PI);
         currentBeeBox->phi = static_cast<float>(fmod(currentBeeBox->phi + phiTemp, 360));
         m_last_rotation_point = cv::Point2i(static_cast<int>(e->x()), static_cast<int>(e->y()));
+        m_path_changed = true;
     }
     Q_EMIT update();
 }
 
 void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
-//    if (!(getVideoMode() == GuiParam::VideoMode::Paused || m_start_of_tracking)) return;
-//    if (m_start_of_tracking) return;
+//    if (getVideoMode() != GuiParam::VideoMode::Paused) return;
 
     if (e->button() == Qt::LeftButton && e->modifiers() != Qt::ControlModifier) {
         if (m_rectstat >= RS_SET) {
             m_rectstat = RS_SET;
-            m_path_changed = true;
-            changePath();
             Q_EMIT update();
         }
     } else if( e->button() == Qt::LeftButton) {
@@ -378,14 +344,12 @@ void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
     } else if (e->button() == Qt::RightButton) {
         if (m_rectstat == RS_ROTATE) {
             m_rectstat = RS_SET;
-            m_path_changed = true;
-            changePath();
             Q_EMIT update();
         }
     }
 }
 
-void BeeDanceTracker::mouseWheelEvent ( QWheelEvent *) {}
+void BeeDanceTracker::mouseWheelEvent ( QWheelEvent *) { }
 
 /*
 * draws every path currently in the paths vector
@@ -417,74 +381,85 @@ void BeeDanceTracker::drawPath(QPainter *painter){
 */
 void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
     for (auto o : m_trackedObjects) {
+        int tmpFrame;
+        QColor c;
         if (o.hasValuesAtFrame(static_cast<int>(frame))) {
-            QPen pen = QPen(static_cast<int>(o.getId())==m_cto?QColor(BOX_COLOR):QColor(BOX_COLOR_INACTIVE));
-            pen.setWidthF(1.5);
-            painter->setPen(pen);
-
-            auto currentBeeBox = o.get<BeeBox>(frame);
-
-            std::vector<cv::Point2i> box = currentBeeBox->getCornerPoints();
-
-            //draw the bounding box
-            for (int i = 0; i < 4; i++) {
-                painter->drawLine(box[i].x, box[i].y, box[(i + 1) % 4].x, box[(i + 1) % 4].y);
+            tmpFrame = frame;
+            c = static_cast<int>(o.getId())==m_cto?QColor(BOX_COLOR):QColor(BOX_COLOR_INACTIVE);
+        } else {
+            if(o.getLastFrameNumber()) {
+                tmpFrame = o.getLastFrameNumber().get();
+                c = static_cast<int>(o.getId()) == m_cto ? QColor(BOX_COLOR, 60) : QColor(BOX_COLOR_INACTIVE, 60);
+            } else {
+                break;
             }
+        }
+        QPen pen = QPen(c);
+        pen.setWidthF(1.5);
+        painter->setPen(pen);
 
-            std::vector<QPointF> arrow = getArrowPoints(frame, o.getId());
-            // direction indicator
-            painter->drawLine(arrow[0], arrow[1]);
-            painter->drawLine(arrow[0], arrow[2]);
-            painter->drawLine(arrow[0], arrow[3]);
+        auto currentBeeBox = o.get<BeeBox>(tmpFrame);
 
-            // draw id
-            QPointF textCenter = QPointF(currentBeeBox->x + sin(currentBeeBox->phi* M_PI / 180) * currentBeeBox->h * -0.4,
-                                         currentBeeBox->y + cos(currentBeeBox->phi* M_PI / 180) * currentBeeBox->h * -0.4);
-            int textheight = currentBeeBox->h*0.15>16.0?16:static_cast<int>(currentBeeBox->h * 0.15);
-            textheight = textheight>0?textheight:1;
+        std::vector<cv::Point2i> box = currentBeeBox->getCornerPoints();
 
-            QFont font = painter->font();
-            font.setPointSize(textheight);
-            painter->setFont(font);
+        //draw the bounding box
+        for (int i = 0; i < 4; i++) {
+            painter->drawLine(box[i].x, box[i].y, box[(i + 1) % 4].x, box[(i + 1) % 4].y);
+        }
 
-            painter->translate(textCenter);
-            painter->rotate(-currentBeeBox->phi);
+        std::vector<QPointF> arrow = getArrowPoints(tmpFrame, o.getId());
+        // direction indicator
+        painter->drawLine(arrow[0], arrow[1]);
+        painter->drawLine(arrow[0], arrow[2]);
+        painter->drawLine(arrow[0], arrow[3]);
 
-            if(currentBeeBox->phi > 90 || currentBeeBox->phi < -90 || currentBeeBox->phi > 270){
-                painter->rotate(180);
-            }
+        // draw id
+        QPointF textCenter = QPointF(currentBeeBox->x + sin(currentBeeBox->phi* M_PI / 180) * currentBeeBox->h * -0.4,
+                                     currentBeeBox->y + cos(currentBeeBox->phi* M_PI / 180) * currentBeeBox->h * -0.4);
+        int textheight = currentBeeBox->h*0.15>16.0?16:static_cast<int>(currentBeeBox->h * 0.15);
+        textheight = textheight>0?textheight:1;
 
-            painter->drawText(QRectF(-currentBeeBox->w/2,-currentBeeBox->h*0.15/2,currentBeeBox->w,currentBeeBox->h*0.15),
-                              Qt::AlignCenter, std::to_string(o.getId()).c_str());
+        QFont font = painter->font();
+        font.setPointSize(textheight);
+        painter->setFont(font);
 
-            if(currentBeeBox->phi > 90 || currentBeeBox->phi < -90 || currentBeeBox->phi > 270){
-                painter->rotate(-180);
-            }
+        painter->translate(textCenter);
+        painter->rotate(-currentBeeBox->phi);
 
-            painter->rotate(currentBeeBox->phi);
-            painter->translate(-textCenter);
+        if(currentBeeBox->phi > 90 || currentBeeBox->phi < -90 || currentBeeBox->phi > 270){
+            painter->rotate(180);
+        }
 
-            if (static_cast<int>(o.getId()) == m_cto) {
-                //make sure the corner points are up to date
-                updatePoints(frame);
+        painter->drawText(QRectF(-currentBeeBox->w/2,-currentBeeBox->h*0.15/2,currentBeeBox->w,currentBeeBox->h*0.15),
+                          Qt::AlignCenter, std::to_string(o.getId()).c_str());
 
-                QPen dotPen = QPen(QColor(0,0,0));
-                pen.setWidth(2);
-                QBrush dotBrush = QBrush(QColor(230,230,255));
+        if(currentBeeBox->phi > 90 || currentBeeBox->phi < -90 || currentBeeBox->phi > 270){
+            painter->rotate(-180);
+        }
 
-                int srad = 6;
-                //disable transformation during playback
-                if (getVideoMode() != GuiParam::VideoMode::Playing) {
-                    //scaling handles
-                    for (int i = 0; i < 4; i++) {
-                        painter->setPen(dotPen);
-                        painter->setBrush(dotBrush);
-                        painter->drawEllipse(QPoint(m_pts[i].x, m_pts[i].y), srad, srad);
-                    }
+        painter->rotate(currentBeeBox->phi);
+        painter->translate(-textCenter);
+
+        // draw resize points on active box
+        if (static_cast<int>(o.getId()) == m_cto && tmpFrame == frame) {
+            //make sure the corner points are up to date
+            updatePoints(tmpFrame);
+
+            QPen dotPen = QPen(QColor(0,0,0));
+            pen.setWidth(2);
+            QBrush dotBrush = QBrush(QColor(230,230,255));
+
+            int srad = 6;
+            //disable transformation during playback
+            if (getVideoMode() != GuiParam::VideoMode::Playing) {
+                //scaling handles
+                for (int i = 0; i < 4; i++) {
+                    painter->setPen(dotPen);
+                    painter->setBrush(dotBrush);
+                    painter->drawEllipse(QPoint(m_pts[i].x, m_pts[i].y), srad, srad);
                 }
             }
         }
-
     }
 }
 
@@ -523,16 +498,6 @@ std::vector<QPointF> BeeDanceTracker::getArrowPoints(int frame, int cto) {
     arrow[3] = QPointF(currentBeeBox->x + sin(p) * h * 0.6 + sin(p + (135*M_PI/180)) * w * 0.6,
                        currentBeeBox->y + cos(p) * h * 0.6 + cos(p + (135*M_PI/180)) * w * 0.6);
     return arrow;
-}
-
-
-/*
-* erases every track after the current one
-*/
-void BeeDanceTracker::changePath(){
-    for(size_t i = m_trackedObjects[m_cto].getLastFrameNumber().get(); i > m_currentFrame; i--){
-//        m_trackedObjects[m_cto].erase(i);
-    }
 }
 
 // =========== P R I V A T E = F U N C S ============
@@ -581,12 +546,14 @@ void BeeDanceTracker::switchMode() {
     m_automatictracking = !m_automatictracking;
     if (m_automatictracking) {
         m_of_tracker = new OverlapOFTracker();
+        m_noncorrectionstepsEdit->setDisabled(!m_correction_enabled);
+        m_enable_correction->setDisabled(!m_automatictracking);
     } else {
         m_of_tracker = new SingleOFTracker();
+        m_noncorrectionstepsEdit->setDisabled(!m_automatictracking);
+        m_enable_correction->setDisabled(!m_automatictracking);
     }
     m_futurestepsEdit->setDisabled(!m_automatictracking);
-    m_noncorrectionstepsEdit->setDisabled(!m_automatictracking);
-    m_enable_correction->setDisabled(!m_automatictracking);
     Q_EMIT update();
 }
 
