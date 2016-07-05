@@ -73,7 +73,6 @@ add_library(beedance.tracker SHARED
         Mask.cpp
         OFTracker.cpp
         OverlapOFTracker.cpp
-        Path.cpp
         SingleOFTracker.cpp
 )
 
