@@ -44,6 +44,8 @@ void SingleOFTracker::deInit()
 {
 	if(!isInitialized()) return;
 
+	need_features = true;
+
 	points[0].clear();
 	points[1].clear();
 	error.clear();

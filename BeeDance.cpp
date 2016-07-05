@@ -114,15 +114,20 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
 
 void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
     cv::Mat imgCopy = imgOriginal.clone();
+    // can't track without an image
     if(imgCopy.empty()) return;
+    // doesn't need to retrack the same frame
+    // happens when video is played
     if(m_currentFrame - frame == 0) return;
 
+    // currently tracked Object doesn't exist in the trackedObjects vector
+    // usually happens when track is called before any box was created
     if(m_cto >= static_cast<int>(m_trackedObjects.size())) return;
 
+    // reset Tracker if user skipped through the video or went backwards with automatic tracking enabled
     int prevFrame = -1;
     if(abs(static_cast<int>(m_currentFrame) - static_cast<int>(frame)) != 1 ||
        (m_automatictracking && static_cast<int>(m_currentFrame) - static_cast<int>(frame) != -1)) {
-        m_currentImage = imgCopy;
         if (!m_automatictracking) {
             reinterpret_cast<SingleOFTracker*>(m_of_tracker)->reset();
         } else {
@@ -134,12 +139,12 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
 
     m_currentFrame = frame;
 
-
-    // skipped through video
+    // can't track without a box either in this or the previous frame
     if(!m_trackedObjects[m_cto].hasValuesAtFrame(frame) && !m_trackedObjects[m_cto].hasValuesAtFrame(frame + prevFrame)){
         return;
     }
 
+    // initialize tracker if it's not initialized
     if (!m_of_tracker->isInitialized()) {
         //semi-automatic or automatic tracking
         if (!m_automatictracking) {
@@ -430,7 +435,6 @@ void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
             tmpFrame = frame;
             c = static_cast<int>(o.getId())==m_cto?(m_tmpBeeBox?QColor(BOX_COLOR_FAKE):QColor(BOX_COLOR)):QColor(BOX_COLOR_INACTIVE);
         } else if(static_cast<int>(o.getId()) == m_cto && static_cast<int>(frame) > 0 && o.hasValuesAtFrame(frame - 1)){
-            std::cout << "addTmpFrame\n";
             tmpFrame = frame;
             m_tmpBeeBox = true;
             m_trackedObjects[m_cto].add(frame, std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1)));
