@@ -2,7 +2,6 @@
 
 #include "OverlapOFTracker.h"
 #include "SingleOFTracker.h"
-#include "Path.h"
 
 #include <QCheckBox>
 #include <QFormLayout>
@@ -30,6 +29,10 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     void paint(size_t frameNumber, BioTracker::Core::ProxyMat &m, View const &view = OriginalView) override;
     void paintOverlay(size_t frameNumber, QPainter *painter, View const &view = OriginalView) override;
 
+    std::set<Qt::Key> const &grabbedKeys() const override {
+        return m_grabbedKeys;
+    }
+
     void keyPressEvent(QKeyEvent *ev) override;
 
     //mouse click and move events
@@ -40,6 +43,8 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
 
   private:
     size_t				        m_currentFrame; // is always the current frame (updated in paint and track)
+    cv::Mat                     m_currentImage;
+    bool                        m_tmpBeeBox;
     // --
     int                         m_futuresteps;
     int                         m_noncorrectionsteps;
@@ -67,8 +72,9 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
 
     OFTracker*                  m_of_tracker;
     int                         m_cto;
-    bool                        m_start_of_tracking;
     int                         m_mouseOverPath;
+
+    std::set<Qt::Key>	        m_grabbedKeys;
 
     // as we want to adapt the values of this class all the time we need to
     // keep it accessible from other methods in the object..
@@ -79,15 +85,17 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     QCheckBox   *           m_fixedratioEdit;
 
   private Q_SLOTS:
-    void switchMode();
+    void switchToATracking();
+    void switchToSATracking();
     void fixRatio();
     void changeParams();
     void enableCorrection();
     void showPath();
 
+    void switchMode(bool atracking);
+    bool clickInsideRectangle(std::vector<cv::Point2i> pts, QMouseEvent *e);
     void drawPath(QPainter *painter);
     void drawRectangle(QPainter *painter, int frame);
-    void forcePointIntoPicture(cv::Point2i & point, cv::Mat &image);
     void updatePoints(int frame);
     std::vector<QPointF> getArrowPoints(int frame, int cto);
     void changePath();
