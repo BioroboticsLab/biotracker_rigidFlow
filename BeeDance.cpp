@@ -253,6 +253,10 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                     }
                 } else {
                     if (clickInsideRectangle(o.get<BeeBox>(o.getLastFrameNumber().get())->getCornerPoints(), e)){
+                        if(m_tmpBeeBox) {
+                            m_trackedObjects[m_cto].erase(m_currentFrame);
+                        }
+                        m_tmpBeeBox = true;
                         in = true;
                         m_cto = o.getId();
                         o.add(m_currentFrame, std::make_shared<BeeBox>(o.get<BeeBox>(o.getLastFrameNumber().get())));
