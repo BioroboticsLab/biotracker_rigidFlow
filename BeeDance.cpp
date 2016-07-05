@@ -187,7 +187,6 @@ void BeeDanceTracker::paintOverlay(size_t frame, QPainter *painter, const View &
     if (m_rectstat >= RS_SET) {
         drawRectangle(painter, static_cast<int>(frame));
     }
-
 }
 
 // =========== I O = H A N D L I N G ============
@@ -207,6 +206,7 @@ void BeeDanceTracker::keyPressEvent(QKeyEvent *ev) {
 void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
 //    if (getVideoMode() != GuiParam::VideoMode::Paused) return;
+
     //check if clicked on path
     m_mouseOverPath = -1;
 
@@ -249,6 +249,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                 if (o.hasValuesAtFrame(m_currentFrame)) {
                     if (clickInsideRectangle(o.get<BeeBox>(m_currentFrame)->getCornerPoints(), e)) {
                         in = true;
+                        // if a temporary Box was on the frame, delete it
                         if(m_tmpBeeBox && static_cast<int>(o.getId()) != m_cto) {
                             m_tmpBeeBox = false;
                             m_trackedObjects[m_cto].erase(m_currentFrame);
@@ -258,10 +259,13 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                     }
                 } else {
                     if (clickInsideRectangle(o.get<BeeBox>(o.getLastFrameNumber().get())->getCornerPoints(), e)){
+                        // if a temporary Box was on the frame, delete it
                         if(m_tmpBeeBox) {
                             m_trackedObjects[m_cto].erase(m_currentFrame);
+                        } else {
+                            m_tmpBeeBox = true;
                         }
-                        m_tmpBeeBox = true;
+                        // add new temporary Box, which is a copy from the last tracked frame of the selected tracked Object
                         in = true;
                         m_cto = o.getId();
                         o.add(m_currentFrame, std::make_shared<BeeBox>(o.get<BeeBox>(o.getLastFrameNumber().get())));
@@ -270,6 +274,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                     }
                 }
             }
+            // update m_pts, so following checks use the right points
             updatePoints(static_cast<int>(m_currentFrame));
             //scale mode
             for (int i = 0; i < 4; i++) {
@@ -299,18 +304,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
         } else {
             updatePoints(static_cast<int>(m_currentFrame));
 
-            //check if mouse click happened inside the rectangle
-            bool in = true;
-            for (int i = 0; i < 4; i++){
-                cv::Point2i pd = m_pts[(i + 1) % 4] - m_pts[i];
-                pd = cv::Point2i(-pd.y, pd.x);
-                cv::Point md = cv::Point2i(e->x() - m_pts[i].x, e->y() - m_pts[i].y);
-                if (pd.dot(md) > 0){
-                    in = false;
-                    break;
-                }
-            }
-            if (m_rectstat == RS_SET && in && m_mouseOverPath == -1){
+            if (m_rectstat == RS_SET && m_mouseOverPath == -1 && clickInsideRectangle(m_pts, e)){
                 //rotate mode
                 m_last_rotation_point = cv::Point2i(static_cast<int>(e->x()), static_cast<int>(e->y()));
                 m_rectstat = RS_ROTATE;
@@ -323,6 +317,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
 void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
 //    if (getVideoMode() != GuiParam::VideoMode::Paused) return;
+
     if(m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
 
     std::shared_ptr<BeeBox> currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame);
@@ -342,7 +337,7 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
 
         Q_EMIT update();
     }
-        //what we do when we are dragging the bounding box
+    //what we do when we are dragging the bounding box
     else if (m_rectstat == RS_DRAG) {
         currentBeeBox->x += e->x() - m_mdx;
         currentBeeBox->y += e->y() - m_mdy;
@@ -350,7 +345,7 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
         m_mdy = e->y();
         m_path_changed = true;
     }
-        //what we do when we are rotating the bounding box
+    //what we do when we are rotating the bounding box
     else if (m_rectstat == RS_ROTATE) {
         auto tmpLR = cv::Point2i(static_cast<int>(m_last_rotation_point.x - currentBeeBox->x),
                             static_cast<int>(m_last_rotation_point.y - currentBeeBox->y));
@@ -367,6 +362,7 @@ void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
 //    if (getVideoMode() != GuiParam::VideoMode::Paused) return;
 
+    // reset the tracker after a box was changed, so following tracks take the new box into account
     if (    (e->button() == Qt::LeftButton && e->modifiers() != Qt::ControlModifier && m_rectstat >= RS_SET) ||
             (e->button() == Qt::LeftButton && m_rectstat >= RS_SET) ||
             (e->button() == Qt::RightButton && m_rectstat == RS_ROTATE)) {
@@ -388,6 +384,11 @@ void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
 
 void BeeDanceTracker::mouseWheelEvent ( QWheelEvent *) { }
 
+// ========= H E L P E R = F U N C T I O N S ==========
+
+/*
+* checks whether the position of *e is inside the rectangle spanned by pts
+*/
 bool BeeDanceTracker::clickInsideRectangle(std::vector<cv::Point2i> pts, QMouseEvent *e) {
     for (int i = 0; i < 4; i++){
         cv::Point2i pd = pts[(i + 1) % 4] - pts[i];
@@ -399,6 +400,7 @@ bool BeeDanceTracker::clickInsideRectangle(std::vector<cv::Point2i> pts, QMouseE
     }
     return true;
 }
+
 /*
 * draws every path currently in the paths vector
 */
@@ -425,8 +427,13 @@ void BeeDanceTracker::drawPath(QPainter *painter){
 }
 
 /*
-* this will draw the tracked area's bounding box and its handles onto the display image
-*/
+ * this will draw the bounding box, an direction indicator, as well as the id for every trackedObject
+ *      for the currently trackedObject the handles for scaling are also drawn
+ * if a trackedObject has a box on the frame, it will be drawn
+ * if not the last box of the trackedObject will be drawn, to indicate a track was there
+ * if the currently selected Object has no track at the current frame, but one in the frame before,
+ *      temporary Box will be created and drawn
+ */
 void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
     for (auto o : m_trackedObjects) {
         int tmpFrame;
@@ -516,7 +523,7 @@ void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
 void BeeDanceTracker::updatePoints(int frame) {
     if(!m_trackedObjects[m_cto].hasValuesAtFrame(frame)) {
         // this happens after the video gets paused and getCurrentFrameNumber()
-        // returns currently painted frame + 1
+        //      returns currently painted frame + 1
         return;
     }
     auto currentBeeBox = m_trackedObjects[m_cto].get<BeeBox>(frame);
