@@ -34,6 +34,24 @@ void SingleOFTracker::init(cv::Mat &frame)
 	OFTracker::init(frame);
 }
 
+void SingleOFTracker::init(cv::Mat &frame, BeeBox &bb)
+{
+    points[0].resize(nfeatures);
+    points[1].resize(nfeatures);
+    error.resize(nfeatures);
+    status.resize(nfeatures);
+
+    OFTracker::init(frame, bb);
+
+    if (need_features) {
+        if(findFeatures(points[1], true))
+        {
+            need_features = false;
+            swap = false;
+        }
+    }
+}
+
 void SingleOFTracker::reset()
 {
 	deInit();

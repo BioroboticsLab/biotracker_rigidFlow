@@ -58,6 +58,16 @@ void OFTracker::init(cv::Mat &frame)
 	initialized = true;
 }
 
+/*
+* Initialises mask and HoughHash.
+* Must be called before using the tracker.
+*/
+void OFTracker::init(cv::Mat &frame, BeeBox &bb)
+{
+    OFTracker::init(frame);
+    setMask(bb);
+}
+
 void OFTracker::deInit()
 {
 	if (!initialized) return;
@@ -164,7 +174,7 @@ void OFTracker::removeOutliers(Points &points, Statuses &status)
 }
 
 /*
-* Calculates the position and orientation of the bounding box for the next frame using the Houghhash
+* Calculates the position and orientation of the bounding box for the next frame using the HoughHash
 * and the optical flow of all features determined by track() and trackFeatures(). If enabled, correction
 * is performed afterwards.
 * This is where all the interesting stuff either happens or is initiated from.

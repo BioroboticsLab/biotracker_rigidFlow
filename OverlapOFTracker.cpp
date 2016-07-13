@@ -57,6 +57,37 @@ void OverlapOFTracker::init(cv::Mat &frame)
 	correctionMask.init(frame.size());
 }
 
+/*
+* Initialises points, status and error matrices for each set of overlapping frames
+*/
+void OverlapOFTracker::init(cv::Mat &frame, BeeBox &bb) {
+    points = new std::vector<cv::Point2f>*[sets];
+    for (int i = 0; i < sets; i++)
+    {
+        points[i] = new std::vector<cv::Point2f>[sets];
+        for (int j = 0; j < sets; j++)
+            points[i][j] = std::vector<cv::Point2f>(nfeatures);
+    }
+
+    status = new std::vector<char>[sets];
+    for (int i = 0; i < sets; i++){
+        status[i] = std::vector<char>(nfeatures);
+        for(int j = 0; j < nfeatures; j++)
+            status[i][j] = 1;
+    }
+
+    error = new std::vector<float>[sets];
+    for (int i = 0; i < sets; i++)
+        error[i] = std::vector<float>(nfeatures);
+
+    counter = 0;
+    OFTracker::init(frame, bb);
+
+    correctionMask.init(frame.size());
+
+    track();
+}
+
 void OverlapOFTracker::reset()
 {
 	deInit();

@@ -20,6 +20,7 @@ public:
 	~OverlapOFTracker();
 	void configure(int future_steps, int non_correction_steps, int features, bool ncs_enabled);
 	virtual void init(cv::Mat &frame) override;
+	virtual void init(cv::Mat &frame, BeeBox &bb) override;
 	virtual void reset() override;
 
 protected:

@@ -45,6 +45,7 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     size_t				        m_currentFrame; // is always the current frame (updated in paint and track)
     cv::Mat                     m_currentImage;
     bool                        m_tmpBeeBox;
+    bool                        m_diff_path;
     // --
     int                         m_futuresteps;
     int                         m_noncorrectionsteps;
@@ -66,13 +67,11 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     int                         m_mdx;
     int                         m_mdy;
 
-    int                         m_dragstat;
     int                         m_rectstat;
     double                      m_rotation;
 
     OFTracker*                  m_of_tracker;
     int                         m_cto;
-    int                         m_mouseOverPath;
 
     std::set<Qt::Key>	        m_grabbedKeys;
 
@@ -91,6 +90,7 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     void changeParams();
     void enableCorrection();
     void showPath();
+    void deletePath();
 
     void switchMode(bool atracking);
     bool clickInsideRectangle(std::vector<cv::Point2i> pts, QMouseEvent *e);

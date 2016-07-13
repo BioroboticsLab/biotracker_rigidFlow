@@ -20,8 +20,8 @@
 #define RS_DRAG 4
 #define RS_ROTATE 5
 
-#define BOX_COLOR 20, 30, 255
-#define BOX_COLOR_FAKE 252, 28, 28
+#define BOX_COLOR 20, 255, 30
+#define BOX_COLOR_FAKE 255, 255, 55
 #define BOX_COLOR_INACTIVE 190, 190, 190
 #define PAST_TRACK_COLOR 70, 240, 15
 #define FUTURE_TRACK_COLOR 35, 120, 8
@@ -41,6 +41,7 @@ extern "C" {
 BeeDanceTracker::BeeDanceTracker(Settings &settings):
     TrackingAlgorithm(settings),
     m_tmpBeeBox(false),
+    m_diff_path(false),
     m_futuresteps(10),
     m_noncorrectionsteps(10),
     m_correction_enabled(false),
@@ -54,7 +55,6 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
     m_rectstat(RS_NOT_SET),
     m_of_tracker(new OverlapOFTracker()),
     m_cto(0),
-    m_mouseOverPath(-1),
     m_futurestepsEdit(new QLineEdit(getToolsWidget())),
     m_noncorrectionstepsEdit(new QLineEdit(getToolsWidget())),
     m_enable_correction(new QCheckBox(getToolsWidget())),
@@ -62,6 +62,7 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
     m_fixedratioEdit(new QCheckBox(getToolsWidget()))
 {
     m_grabbedKeys.insert(Qt::Key_D);
+    m_grabbedKeys.insert(Qt::Key_Delete);
     // initialize gui
     auto ui = getToolsWidget();
     auto layout = new QFormLayout();
@@ -109,6 +110,11 @@ BeeDanceTracker::BeeDanceTracker(Settings &settings):
                      this, &BeeDanceTracker::showPath);
     layout->addRow("Show Path", showPath);
 
+    auto *deletePathBut = new QPushButton("Delete Path");
+    QObject::connect(deletePathBut, &QPushButton::clicked,
+                     this, &BeeDanceTracker::deletePath);
+    layout->addRow(deletePathBut);
+
     ui->setLayout(layout);
 }
 
@@ -123,6 +129,11 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
     // currently tracked Object doesn't exist in the trackedObjects vector
     // usually happens when track is called before any box was created
     if(m_cto >= static_cast<int>(m_trackedObjects.size())) return;
+
+    if (m_tmpBeeBox) {
+        m_tmpBeeBox = false;
+        m_trackedObjects[m_cto].erase(m_currentFrame);
+    }
 
     // reset Tracker if user skipped through the video or went backwards with automatic tracking enabled
     int prevFrame = -1;
@@ -149,10 +160,10 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
         //semi-automatic or automatic tracking
         if (!m_automatictracking) {
             reinterpret_cast<SingleOFTracker*>(m_of_tracker)->configure(m_features);
-            reinterpret_cast<SingleOFTracker*>(m_of_tracker)->init(m_currentImage);
+            reinterpret_cast<SingleOFTracker*>(m_of_tracker)->init(m_currentImage, *m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
         } else {
             reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->configure(m_futuresteps, m_noncorrectionsteps, m_features, m_correction_enabled);
-            reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->init(m_currentImage);
+            reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->init(m_currentImage, *m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
         }
     }
     if(!m_automatictracking || prevFrame < 0 || m_path_changed) {
@@ -195,9 +206,19 @@ void BeeDanceTracker::paintOverlay(size_t frame, QPainter *painter, const View &
 // ============== Keyboard ==================
 
 void BeeDanceTracker::keyPressEvent(QKeyEvent *ev) {
-    if (ev->key() == 68) { // => Key: 'd'
+    if (ev->key() == Qt::Key_D && m_tmpBeeBox) {
         m_tmpBeeBox = false;
+        Q_EMIT jumpToFrame(m_currentFrame + 1); // doesn't work, core problem?
         Q_EMIT update();
+    } else if (ev->key() == Qt::Key_Delete) {
+        if(m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame) && !m_tmpBeeBox) {
+            m_trackedObjects[m_cto].erase(m_currentFrame);
+            if(m_trackedObjects[m_cto].isEmpty()){
+                deletePath();
+            }
+            Q_EMIT jumpToFrame(m_currentFrame + 1); // doesn't work, core problem?
+            Q_EMIT update();
+        }
     }
 }
 
@@ -206,22 +227,6 @@ void BeeDanceTracker::keyPressEvent(QKeyEvent *ev) {
 void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     //forbidding any mouse interaction while the video is playing
 //    if (getVideoMode() != GuiParam::VideoMode::Paused) return;
-
-    //check if clicked on path
-    m_mouseOverPath = -1;
-
-    if(m_cto < static_cast<int>(m_trackedObjects.size())) {
-        auto currentPath = m_trackedObjects[m_cto];
-        for (size_t frame = 0; frame < currentPath.getLastFrameNumber().get() + 1; frame++) {
-            if (currentPath.hasValuesAtFrame(frame)) {
-                BeeBox point = currentPath.get<BeeBox>(frame);
-                if (abs(e->x() - static_cast<int>(point.x)) <= 2 && abs(e->y() - static_cast<int>(point.y)) <= 2) {
-                    m_mouseOverPath = m_cto;
-                    break;
-                }
-            }
-        }
-    }
 
     //check if left button is clicked
     if (e->button() == Qt::LeftButton) {
@@ -253,6 +258,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                         if(m_tmpBeeBox && static_cast<int>(o.getId()) != m_cto) {
                             m_tmpBeeBox = false;
                             m_trackedObjects[m_cto].erase(m_currentFrame);
+                            m_diff_path = true;
                         }
                         m_cto = o.getId();
                         break;
@@ -265,6 +271,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                         } else {
                             m_tmpBeeBox = true;
                         }
+                        m_diff_path = true;
                         // add new temporary Box, which is a copy from the last tracked frame of the selected tracked Object
                         in = true;
                         m_cto = o.getId();
@@ -276,39 +283,30 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
             }
             // update m_pts, so following checks use the right points
             updatePoints(static_cast<int>(m_currentFrame));
-            //scale mode
+            // scale mode
             for (int i = 0; i < 4; i++) {
                 if (abs(e->x() - m_pts[i].x) <= close && abs(e->y() - m_pts[i].y) <= close) {
                     m_rectstat = RS_SCALE;
                 }
             }
-            //drag mode
-            if (m_rectstat == RS_SET && in && m_mouseOverPath == -1) {
+            // drag mode
+            if (m_rectstat == RS_SET && in) {
                 m_mdx = e->x();
                 m_mdy = e->y();
                 m_rectstat = RS_DRAG;
             }
         }
     }
-    //deletes a previously selected path that is right-clicked
+    // rotate mode
     else if (e->button() == Qt::RightButton) {
         if(m_cto >= static_cast<int>(m_trackedObjects.size()) || !m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame)) return;
 
-        if (m_mouseOverPath == m_cto && m_path_showing) {
-            auto bb = std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
-            TrackedObject o(m_cto);
-            o.add(m_currentFrame, bb);
-            m_trackedObjects[m_cto] = o;
+        updatePoints(static_cast<int>(m_currentFrame));
 
-            m_mouseOverPath = -1;
-        } else {
-            updatePoints(static_cast<int>(m_currentFrame));
-
-            if (m_rectstat == RS_SET && m_mouseOverPath == -1 && clickInsideRectangle(m_pts, e)){
-                //rotate mode
-                m_last_rotation_point = cv::Point2i(static_cast<int>(e->x()), static_cast<int>(e->y()));
-                m_rectstat = RS_ROTATE;
-            }
+        if (m_rectstat == RS_SET){
+            //rotate mode
+            m_last_rotation_point = cv::Point2i(static_cast<int>(e->x()), static_cast<int>(e->y()));
+            m_rectstat = RS_ROTATE;
         }
         Q_EMIT update();
     }
@@ -371,11 +369,17 @@ void BeeDanceTracker::mouseReleaseEvent(QMouseEvent * e) {
         if (!m_automatictracking) {
             reinterpret_cast<SingleOFTracker*>(m_of_tracker)->reset();
             reinterpret_cast<SingleOFTracker*>(m_of_tracker)->configure(m_features);
-            reinterpret_cast<SingleOFTracker*>(m_of_tracker)->init(m_currentImage);
+            reinterpret_cast<SingleOFTracker*>(m_of_tracker)->init(m_currentImage, *m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
         } else {
             reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->reset();
             reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->configure(m_futuresteps, m_noncorrectionsteps, m_features, m_correction_enabled);
-            reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->init(m_currentImage);
+            reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->init(m_currentImage, *m_trackedObjects[m_cto].get<BeeBox>(m_currentFrame));
+        }
+
+        if(m_diff_path){
+            m_diff_path = false;
+        } else {
+            m_tmpBeeBox = false;
         }
 
         Q_EMIT update();
@@ -635,5 +639,25 @@ void BeeDanceTracker::changeParams() {
     } else {
         m_features = temp2;
         reinterpret_cast<SingleOFTracker*>(m_of_tracker)->configure(m_features);
+    }
+}
+
+
+/*
+* deletes currently selected trackedObject
+*/
+void BeeDanceTracker::deletePath() {
+    if(m_cto < static_cast<int>(m_trackedObjects.size())){
+        m_trackedObjects.erase(m_trackedObjects.begin() + m_cto);
+        if(m_cto == static_cast<int>(m_trackedObjects.size()) && m_cto > 0){
+            m_cto--;
+        }
+        for(size_t i = m_cto; i < m_trackedObjects.size(); i++){
+            m_trackedObjects[i].setId(i);
+        }
+        if(m_trackedObjects.size() == 0){
+            m_rectstat = RS_NOT_SET;
+        }
+        Q_EMIT update();
     }
 }

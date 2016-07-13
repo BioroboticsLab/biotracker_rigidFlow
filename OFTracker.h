@@ -29,6 +29,7 @@ private:
 public:
 	virtual ~OFTracker();
 	virtual void init(cv::Mat &frame);
+	virtual void init(cv::Mat &frame, BeeBox &bb);
 	bool isInitialized() const;
 	void next(cv::Mat &frame, BeeBox &bb);
 	virtual void reset();

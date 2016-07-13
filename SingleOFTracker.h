@@ -20,6 +20,7 @@ public:
 	~SingleOFTracker();
 	void configure(int n);
 	virtual void init(cv::Mat &frame) override;
+	virtual void init(cv::Mat &frame, BeeBox &bb) override;
 	virtual void reset() override;
 
 protected:
