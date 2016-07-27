@@ -71,7 +71,7 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     double                      m_rotation;
 
     OFTracker*                  m_of_tracker;
-    int                         m_cto;
+    size_t                      m_cto;
 
     std::set<Qt::Key>	        m_grabbedKeys;
 
@@ -95,8 +95,8 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     void switchMode(bool atracking);
     bool clickInsideRectangle(std::vector<cv::Point2i> pts, QMouseEvent *e);
     void drawPath(QPainter *painter);
-    void drawRectangle(QPainter *painter, int frame);
-    void updatePoints(int frame);
-    std::vector<QPointF> getArrowPoints(int frame, int cto);
-    void changePath();
+    void drawRectangle(QPainter *painter, size_t frame);
+    void updatePoints(size_t frame);
+    std::vector<QPointF> getArrowPoints(size_t frame, size_t cto);
+    //void changePath();
 };
