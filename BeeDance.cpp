@@ -200,6 +200,19 @@ void BeeDanceTracker::paintOverlay(size_t frame, QPainter *painter, const View &
     }
 }
 
+
+void BeeDanceTracker::prepareSave() {
+    if(m_tmpBeeBox) {
+        m_trackedObjects[m_cto].erase(m_currentFrame);
+    }
+}
+
+void BeeDanceTracker::postLoad() {
+    if(m_trackedObjects.size() > 0){
+        m_cto = 0;
+        m_rectstat = RS_INITIALIZE;
+    }
+}
 // =========== I O = H A N D L I N G ============
 
 

@@ -33,6 +33,10 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
         return m_grabbedKeys;
     }
 
+    void prepareSave() override;
+
+    void postLoad() override;
+
     void keyPressEvent(QKeyEvent *ev) override;
 
     //mouse click and move events
@@ -98,5 +102,4 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     void drawRectangle(QPainter *painter, int frame);
     void updatePoints(int frame);
     std::vector<QPointF> getArrowPoints(int frame, int cto);
-    void changePath();
 };
