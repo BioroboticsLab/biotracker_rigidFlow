@@ -75,7 +75,7 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
     double                      m_rotation;
 
     OFTracker*                  m_of_tracker;
-    int                         m_cto;
+    int                      m_cto;
 
     std::set<Qt::Key>	        m_grabbedKeys;
 

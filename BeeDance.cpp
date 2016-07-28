@@ -145,7 +145,7 @@ void BeeDanceTracker::track(size_t frame, const cv::Mat &imgOriginal) {
             reinterpret_cast<OverlapOFTracker*>(m_of_tracker)->reset();
         }
     } else {
-        prevFrame = m_currentFrame - frame;
+        prevFrame = static_cast<int>(m_currentFrame) - static_cast<int>(frame);
     }
 
     m_currentFrame = frame;
@@ -221,15 +221,18 @@ void BeeDanceTracker::postLoad() {
 void BeeDanceTracker::keyPressEvent(QKeyEvent *ev) {
     if (ev->key() == Qt::Key_D && m_tmpBeeBox) {
         m_tmpBeeBox = false;
-        Q_EMIT jumpToFrame(m_currentFrame + 1); // doesn't work, core problem?
+        Q_EMIT jumpToFrame(static_cast<int>(m_currentFrame) + 1); // doesn't work, core problem?
         Q_EMIT update();
-    } else if (ev->key() == Qt::Key_Delete) {
-        if(m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame) && !m_tmpBeeBox) {
+    } 
+	else if (ev->key() == Qt::Key_Delete) 
+	{
+        if ( m_trackedObjects[m_cto].hasValuesAtFrame(m_currentFrame) && !m_tmpBeeBox) 
+		{
             m_trackedObjects[m_cto].erase(m_currentFrame);
             if(m_trackedObjects[m_cto].isEmpty()){
                 deletePath();
             }
-            Q_EMIT jumpToFrame(m_currentFrame + 1); // doesn't work, core problem?
+            Q_EMIT jumpToFrame(static_cast<int>(m_currentFrame) + 1); // doesn't work, core problem?
             Q_EMIT update();
         }
     }
@@ -361,7 +364,7 @@ void BeeDanceTracker::mouseMoveEvent(QMouseEvent * e) {
         auto tmpLR = cv::Point2i(static_cast<int>(m_last_rotation_point.x - currentBeeBox->x),
                             static_cast<int>(m_last_rotation_point.y - currentBeeBox->y));
         auto tmpE = cv::Point2i(static_cast<int>(e->x() - currentBeeBox->x), static_cast<int>(e->y() - currentBeeBox->y));
-        float phiTemp = static_cast<float>(atan2(tmpLR.y, tmpLR.x) * 180 / M_PI) - static_cast<float>(atan2(tmpE.y, tmpE.x) * 180 / M_PI);
+        float phiTemp = static_cast<float>(atan2(tmpLR.y, tmpLR.x) * 180 / CV_PI) - static_cast<float>(atan2(tmpE.y, tmpE.x) * 180 / CV_PI);
         currentBeeBox->phi = static_cast<float>(fmod(currentBeeBox->phi + phiTemp, 360));
         m_last_rotation_point = cv::Point2i(static_cast<int>(e->x()), static_cast<int>(e->y()));
         m_path_changed = true;
@@ -453,7 +456,7 @@ void BeeDanceTracker::drawPath(QPainter *painter){
  */
 void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
     for (auto o : m_trackedObjects) {
-        int tmpFrame;
+		int tmpFrame;
         QColor c;
         if (o.hasValuesAtFrame(static_cast<int>(frame))) {
             tmpFrame = frame;
@@ -492,8 +495,8 @@ void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
         painter->drawLine(arrow[0], arrow[3]);
 
         // draw id
-        QPointF textCenter = QPointF(currentBeeBox->x + sin(currentBeeBox->phi* M_PI / 180) * currentBeeBox->h * -0.4,
-                                     currentBeeBox->y + cos(currentBeeBox->phi* M_PI / 180) * currentBeeBox->h * -0.4);
+        QPointF textCenter = QPointF(currentBeeBox->x + sin(currentBeeBox->phi* CV_PI / 180) * currentBeeBox->h * -0.4,
+                                     currentBeeBox->y + cos(currentBeeBox->phi* CV_PI / 180) * currentBeeBox->h * -0.4);
         int textheight = currentBeeBox->h*0.15>16.0?16:static_cast<int>(currentBeeBox->h * 0.15);
         textheight = textheight>0?textheight:1;
 
@@ -522,14 +525,14 @@ void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
 
             int srad = 6;
             //disable transformation during playback
-            if (getVideoMode() != GuiParam::VideoMode::Playing) {
+//            if (getVideoMode() != GuiParam::VideoMode::Playing) {
                 //scaling handles
                 for (int i = 0; i < 4; i++) {
                     painter->setPen(dotPen);
                     painter->setBrush(dotBrush);
                     painter->drawEllipse(QPoint(m_pts[i].x, m_pts[i].y), srad, srad);
                 }
-            }
+//            }
         }
     }
 }
@@ -559,15 +562,15 @@ std::vector<QPointF> BeeDanceTracker::getArrowPoints(int frame, int cto) {
 
     double h = currentBeeBox->h / 2;
     double w = currentBeeBox->w / 2;
-    double p = currentBeeBox->phi * M_PI / 180;
+    double p = currentBeeBox->phi * CV_PI / 180;
 
     std::vector<QPointF> arrow(4);
     arrow[0] = QPointF(currentBeeBox->x + sin(p) * h * 0.6, currentBeeBox->y + cos(p) * h * 0.6);
     arrow[1] = QPointF(currentBeeBox->x + sin(p) * h * -0.6, currentBeeBox->y + cos(p) * h * -0.6);
-    arrow[2] = QPointF(currentBeeBox->x + sin(p) * h * 0.6 + sin(p - (135*M_PI/180)) * w * 0.6,
-                       currentBeeBox->y + cos(p) * h * 0.6 + cos(p - (135*M_PI/180)) * w * 0.6);
-    arrow[3] = QPointF(currentBeeBox->x + sin(p) * h * 0.6 + sin(p + (135*M_PI/180)) * w * 0.6,
-                       currentBeeBox->y + cos(p) * h * 0.6 + cos(p + (135*M_PI/180)) * w * 0.6);
+    arrow[2] = QPointF(currentBeeBox->x + sin(p) * h * 0.6 + sin(p - (135*CV_PI /180)) * w * 0.6,
+                       currentBeeBox->y + cos(p) * h * 0.6 + cos(p - (135*CV_PI /180)) * w * 0.6);
+    arrow[3] = QPointF(currentBeeBox->x + sin(p) * h * 0.6 + sin(p + (135*CV_PI /180)) * w * 0.6,
+                       currentBeeBox->y + cos(p) * h * 0.6 + cos(p + (135*CV_PI /180)) * w * 0.6);
     return arrow;
 }
 
