@@ -151,7 +151,7 @@ bool OFTracker::trackFeatures(Points &points_old, Points &points_new, Errors &er
 	for(int i = 0; i < static_cast<int>(points_old.size()); i++)
 	{
 		points_new[i] = out.at<cv::Point2f>(i);
-		status[i] = out.at<char>(i);
+		status[i] = stat.at<char>(i);
 	}
 
 	removeOutliers(points_new, status);
