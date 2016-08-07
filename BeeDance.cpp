@@ -248,7 +248,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
     if (e->button() == Qt::LeftButton) {
         // add new BeeBox
         if (e->modifiers() == Qt::ControlModifier) {
-            m_cto = m_trackedObjects.size();
+            m_cto = static_cast<int>(m_trackedObjects.size());
 
             auto bb = std::make_shared<BeeBox>();
             TrackedObject o(m_cto);
@@ -276,7 +276,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                             m_trackedObjects[m_cto].erase(m_currentFrame);
                             m_diff_path = true;
                         }
-                        m_cto = o.getId();
+                        m_cto = static_cast<int>(o.getId());
                         break;
                     }
                 } else {
@@ -290,7 +290,7 @@ void BeeDanceTracker::mousePressEvent(QMouseEvent * e) {
                         m_diff_path = true;
                         // add new temporary Box, which is a copy from the last tracked frame of the selected tracked Object
                         in = true;
-                        m_cto = o.getId();
+                        m_cto = static_cast<int>(o.getId());
                         o.add(m_currentFrame, std::make_shared<BeeBox>(o.get<BeeBox>(o.getLastFrameNumber().get())));
                         m_trackedObjects[m_cto].add(m_currentFrame, std::make_shared<BeeBox>(o.get<BeeBox>(o.getLastFrameNumber().get())));
                         break;
@@ -454,14 +454,14 @@ void BeeDanceTracker::drawPath(QPainter *painter){
  * if the currently selected Object has no track at the current frame, but one in the frame before,
  *      temporary Box will be created and drawn
  */
-void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
+void BeeDanceTracker::drawRectangle(QPainter *painter, size_t frame) {
     for (auto o : m_trackedObjects) {
-		int tmpFrame;
+		size_t tmpFrame;
         QColor c;
         if (o.hasValuesAtFrame(static_cast<int>(frame))) {
             tmpFrame = frame;
-            c = static_cast<int>(o.getId())==m_cto?(m_tmpBeeBox?QColor(BOX_COLOR_FAKE):QColor(BOX_COLOR)):QColor(BOX_COLOR_INACTIVE);
-        } else if(static_cast<int>(o.getId()) == m_cto && static_cast<int>(frame) > 0 && o.hasValuesAtFrame(frame - 1)){
+			c = static_cast<int>(o.getId()) == m_cto ? (m_tmpBeeBox ? QColor(BOX_COLOR_FAKE) : QColor(BOX_COLOR)) : QColor(BOX_COLOR_INACTIVE);
+		} else if (static_cast<int>(o.getId()) == m_cto && static_cast<int>(frame) > 0 && o.hasValuesAtFrame(frame - 1)) {
             tmpFrame = frame;
             m_tmpBeeBox = true;
             m_trackedObjects[m_cto].add(frame, std::make_shared<BeeBox>(m_trackedObjects[m_cto].get<BeeBox>(frame - 1)));
@@ -470,7 +470,7 @@ void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
         } else {
             if(o.getLastFrameNumber()) {
                 tmpFrame = o.getLastFrameNumber().get();
-                c = static_cast<int>(o.getId()) == m_cto ? QColor(BOX_COLOR, 60) : QColor(BOX_COLOR_INACTIVE, 60);
+				c = static_cast<int>(o.getId()) == m_cto ? QColor(BOX_COLOR, 60) : QColor(BOX_COLOR_INACTIVE, 60);
             } else {
                 break;
             }
@@ -540,7 +540,7 @@ void BeeDanceTracker::drawRectangle(QPainter *painter, int frame) {
 /*
 * update the corner points by calculating their current positions based on the centre, width, height and rotation of the mask
 */
-void BeeDanceTracker::updatePoints(int frame) {
+void BeeDanceTracker::updatePoints(size_t frame) {
     if(!m_trackedObjects[m_cto].hasValuesAtFrame(frame)) {
         // this happens after the video gets paused and getCurrentFrameNumber()
         //      returns currently painted frame + 1
@@ -554,7 +554,7 @@ void BeeDanceTracker::updatePoints(int frame) {
 /*
  * calculates the points needed to draw the arrow inside the box
  */
-std::vector<QPointF> BeeDanceTracker::getArrowPoints(int frame, int cto) {
+std::vector<QPointF> BeeDanceTracker::getArrowPoints(size_t frame, size_t cto) {
     if(!m_trackedObjects[cto].hasValuesAtFrame(frame)) {
         return std::vector<QPointF>(4);
     }
