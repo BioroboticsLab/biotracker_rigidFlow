@@ -20,12 +20,12 @@ public:
 	~SingleOFTracker();
 	void configure(int n);
 	virtual void init(cv::Mat &frame) override;
-	virtual void init(cv::Mat &frame, BeeBox &bb) override;
+	virtual void init(cv::Mat &frame, FlowBox &bb) override;
 	virtual void reset() override;
 
 protected:
 	void deInit();
 	virtual bool track()  override;
-	virtual void correct(BeeBox&) override {}
+	virtual void correct(FlowBox&) override {}
 	virtual bool iteratePoints(cv::Point2f &p1, cv::Point2f &p2) override;
 };

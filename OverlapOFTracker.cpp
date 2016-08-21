@@ -60,7 +60,7 @@ void OverlapOFTracker::init(cv::Mat &frame)
 /*
 * Initialises points, status and error matrices for each set of overlapping frames
 */
-void OverlapOFTracker::init(cv::Mat &frame, BeeBox &bb) {
+void OverlapOFTracker::init(cv::Mat &frame, FlowBox &bb) {
     points = new std::vector<cv::Point2f>*[sets];
     for (int i = 0; i < sets; i++)
     {
@@ -135,11 +135,11 @@ bool OverlapOFTracker::track()
 * generates random box orientations and checks if they suit they match the features better then the 
 * calculated box for this step from the HoughHash
 */
-void OverlapOFTracker::correct(BeeBox &bb)
+void OverlapOFTracker::correct(FlowBox &bb)
 {
-	std::vector<BeeBox> models;
+	std::vector<FlowBox> models;
 	cv::Point2f p1, p2;
-	BeeBox temp;
+	FlowBox temp;
 	float score, last_max_score = LONG_MIN, max_score = 0;
 
 	cv::Point3f max_transform, T;
@@ -174,7 +174,7 @@ void OverlapOFTracker::correct(BeeBox &bb)
 	} while (max_score != last_max_score);
 }
 
-int OverlapOFTracker::scoreModel(BeeBox &bb)
+int OverlapOFTracker::scoreModel(FlowBox &bb)
 {
 	cv::Point2f p1, p2;
 	cv::Point2f img_center = bb.getRotationCenter();
@@ -195,7 +195,7 @@ int OverlapOFTracker::scoreModel(BeeBox &bb)
 		{ 
 			c = correctionMask.getValue(p1);
 
-			if (c == INSIDE_BEEBOX)
+			if (c == INSIDE_FlowBox)
 			{
 				hough->fill(p1 - img_center, p2 - img_center, 1);
 				count++;
@@ -219,9 +219,9 @@ int OverlapOFTracker::scoreModel(BeeBox &bb)
     return static_cast<int>(score);
 }
 
-std::vector<BeeBox> OverlapOFTracker::distributeModels(BeeBox &seed)
+std::vector<FlowBox> OverlapOFTracker::distributeModels(FlowBox &seed)
 {
-	std::vector<BeeBox> models(NUM_MODELS);
+	std::vector<FlowBox> models(NUM_MODELS);
 	std::default_random_engine g;
 	std::normal_distribution<> dx(seed.x, sqrt(MODEL_VARIANCE_XY));
 	std::normal_distribution<> dy(seed.y, sqrt(MODEL_VARIANCE_XY));
@@ -229,7 +229,7 @@ std::vector<BeeBox> OverlapOFTracker::distributeModels(BeeBox &seed)
 
 	models[0] = seed;
 	for (int i = 1; i < NUM_MODELS; i++){
-        models[i] = BeeBox(static_cast<float>(dx(g)), static_cast<float>(dy(g)), seed.w, seed.h, seed.phi + static_cast<float>(dp(g)));
+        models[i] = FlowBox(static_cast<float>(dx(g)), static_cast<float>(dy(g)), seed.w, seed.h, seed.phi + static_cast<float>(dp(g)));
 	}
 
 	return models;	

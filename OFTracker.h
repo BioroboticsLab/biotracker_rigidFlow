@@ -1,7 +1,7 @@
 #pragma once
 #include <opencv2/core/core.hpp>
 
-#include "BeeBox.h"
+#include "FlowBox.h"
 #include "HoughHash.h"
 #include "Mask.h"
 
@@ -29,9 +29,9 @@ private:
 public:
 	virtual ~OFTracker();
 	virtual void init(cv::Mat &frame);
-	virtual void init(cv::Mat &frame, BeeBox &bb);
+	virtual void init(cv::Mat &frame, FlowBox &bb);
 	bool isInitialized() const;
-	void next(cv::Mat &frame, BeeBox &bb);
+	void next(cv::Mat &frame, FlowBox &bb);
 	virtual void reset();
 
 protected:
@@ -42,12 +42,12 @@ protected:
 	bool setFrame(cv::Mat &frame);
 	bool findFeatures(Points &points, bool masked);
 	bool trackFeatures(Points &points_old, Points &points_new, Errors &error, Statuses &status);
-	virtual void correct(BeeBox &bb) = 0;
+	virtual void correct(FlowBox &bb) = 0;
 	virtual bool track() = 0;
 	virtual bool iteratePoints(cv::Point2f &p1, cv::Point2f &p2) = 0;
 	
 private:
 	void deInit();
 	void removeOutliers(Points &newp, Statuses &status);
-	bool setMask(const BeeBox &bb);
+	bool setMask(const FlowBox &bb);
 };

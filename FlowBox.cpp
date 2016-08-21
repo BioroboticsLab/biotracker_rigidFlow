@@ -4,11 +4,11 @@
 #include <cereal/archives/json.hpp>
 #include <cereal/types/polymorphic.hpp>
 
-#include "BeeBox.h"
+#include "FlowBox.h"
 
 #define ROTATION_OFFSET 0
 
-BeeBox::BeeBox(void)
+FlowBox::FlowBox(void)
 :
 x(0),
 y(0),
@@ -18,7 +18,7 @@ phi(0)
 {
 }
 
-BeeBox::BeeBox(std::shared_ptr<BeeBox> other)
+FlowBox::FlowBox(std::shared_ptr<FlowBox> other)
 {
 	x = other.get()->x;
 	y = other.get()->y;
@@ -27,7 +27,7 @@ BeeBox::BeeBox(std::shared_ptr<BeeBox> other)
 	phi = other.get()->phi;
 }
 
-BeeBox::BeeBox(float posx, float posy, float width, float height, float angle)
+FlowBox::FlowBox(float posx, float posy, float width, float height, float angle)
 {
 	x = posx;
 	y = posy;
@@ -36,23 +36,23 @@ BeeBox::BeeBox(float posx, float posy, float width, float height, float angle)
 	phi = angle;
 }
 
-BeeBox::~BeeBox()
+FlowBox::~FlowBox()
 {
 }
 
-cv::Point2f BeeBox::getRotationCenter() const
+cv::Point2f FlowBox::getRotationCenter() const
 {
 	return rotateVector(cv::Point2f(ROTATION_OFFSET * ROTATION_OFFSET / 2, 0), -phi) + cv::Point2f(x, y);
 }
 
-void BeeBox::applyTransform(const cv::Point3f t)
+void FlowBox::applyTransform(const cv::Point3f t)
 {
 	x += t.x;
 	y += t.y;
 	rotate(t.z);	
 }
 
-void BeeBox::rotate(float da)
+void FlowBox::rotate(float da)
 {
 	if (ROTATION_OFFSET)
 	{
@@ -69,7 +69,7 @@ void BeeBox::rotate(float da)
 
 }
 
-std::vector<cv::Point2i> BeeBox::getCornerPoints() const
+std::vector<cv::Point2i> FlowBox::getCornerPoints() const
 {
 	std::vector<cv::Point2i> pts(4);
 	int w2 = static_cast<int>(w / 2);
@@ -87,7 +87,7 @@ std::vector<cv::Point2i> BeeBox::getCornerPoints() const
 	return pts;
 }
 
-cv::Point2f BeeBox::rotateVector(const cv::Point2f p, float a) const
+cv::Point2f FlowBox::rotateVector(const cv::Point2f p, float a) const
 {
 	float cosa, sina;
 	cosa = static_cast<float>(cos(a * M_PI / 180));
@@ -95,10 +95,10 @@ cv::Point2f BeeBox::rotateVector(const cv::Point2f p, float a) const
 	return cv::Point2f(cosa * p.x - sina * p.y, sina * p.x + cosa * p.y);
 }
 
-std::ostream& operator<<(std::ostream &os, const BeeBox &bb)
+std::ostream& operator<<(std::ostream &os, const FlowBox &bb)
 {
 	os << "BB("<< bb.x << ", " << bb.y << " ; " << bb.phi << ")";
 	return os;
 }
 
-CEREAL_REGISTER_TYPE(BeeBox)
+CEREAL_REGISTER_TYPE(FlowBox)

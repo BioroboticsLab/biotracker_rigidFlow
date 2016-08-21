@@ -34,7 +34,7 @@ void SingleOFTracker::init(cv::Mat &frame)
 	OFTracker::init(frame);
 }
 
-void SingleOFTracker::init(cv::Mat &frame, BeeBox &bb)
+void SingleOFTracker::init(cv::Mat &frame, FlowBox &bb)
 {
     points[0].resize(nfeatures);
     points[1].resize(nfeatures);

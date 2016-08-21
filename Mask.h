@@ -2,9 +2,9 @@
 
 #include <opencv2/core/core.hpp>
 
-#include "BeeBox.h"
+#include "FlowBox.h"
 
-#define INSIDE_BEEBOX 2
+#define INSIDE_FlowBox 2
 #define INSIDE_RIM 64
 
 class Mask
@@ -16,9 +16,9 @@ public:
 	~Mask();
 	
 	void init(cv::Size size);
-	void set(const BeeBox &bb);
+	void set(const FlowBox &bb);
 	char getValue(const cv::Point2f p);
 
 private:
-	void drawBoundingBoxFilled(cv::Mat& img, const BeeBox bb, cv::Scalar color = cv::Scalar(255)) const;
+	void drawBoundingBoxFilled(cv::Mat& img, const FlowBox bb, cv::Scalar color = cv::Scalar(255)) const;
 };

@@ -14,19 +14,19 @@ void Mask::init(cv::Size size)
 	mask = cv::Mat::zeros(size, CV_8UC1);
 }
 	
-void Mask::set(const BeeBox &bb)
+void Mask::set(const FlowBox &bb)
 {
 	mask.setTo(0);
 
 	if(bb.w == 0 || bb.h == 0) return;
 
-	BeeBox large(bb);
+	FlowBox large(bb);
 
 	large.w = bb.w * 2;
 	large.h = bb.h * 1.5f;
 
 	drawBoundingBoxFilled(mask, large, cv::Scalar(INSIDE_RIM));
-	drawBoundingBoxFilled(mask, bb, cv::Scalar(INSIDE_BEEBOX));
+	drawBoundingBoxFilled(mask, bb, cv::Scalar(INSIDE_FlowBox));
 }
 
 char Mask::getValue(const cv::Point2f p)
@@ -35,7 +35,7 @@ char Mask::getValue(const cv::Point2f p)
 	return mask.at<unsigned char>(static_cast<int>(p.y), static_cast<int>(p.x));	
 }
 
-void Mask::drawBoundingBoxFilled(cv::Mat& img, const BeeBox bb, cv::Scalar color) const
+void Mask::drawBoundingBoxFilled(cv::Mat& img, const FlowBox bb, cv::Scalar color) const
 {
 	std::vector<cv::Point> pnts = bb.getCornerPoints();
 	cv::fillConvexPoly(img, &pnts[0], 4, color);

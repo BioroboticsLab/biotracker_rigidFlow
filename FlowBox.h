@@ -4,16 +4,15 @@
 
 #include <biotracker/serialization/TrackedObject.h>
 
-class BeeBox : public BioTracker::Core::ObjectModel {
+class FlowBox : public BioTracker::Core::ObjectModel {
 public:
 	float x, y, w, h;
 	float phi;
 
-	BeeBox(void);
-//	BeeBox(const BeeBox &other);
-	BeeBox(std::shared_ptr<BeeBox> other);
-	BeeBox(float x, float y, float w, float h, float p);
-	~BeeBox();
+	FlowBox(void);
+	FlowBox(std::shared_ptr<FlowBox> other);
+	FlowBox(float x, float y, float w, float h, float p);
+	~FlowBox();
 	cv::Point2f getRotationCenter() const;
 	void applyTransform(const cv::Point3f t);
 	void rotate(float da);
@@ -34,4 +33,4 @@ private:
 	}
 };
 
-std::ostream& operator<<(std::ostream &os, const BeeBox &bb);
+std::ostream& operator<<(std::ostream &os, const FlowBox &bb);

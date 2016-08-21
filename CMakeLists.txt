@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.7 FATAL_ERROR)
-project(beedance)
+project(rigidFlow)
 
 #------------------------------------------------------------------------------
 # Required CPM Setup - no need to modify - See: https://github.com/iauns/cpm
@@ -66,9 +66,9 @@ set(CMAKE_AUTOMOC ON)
 add_definitions(${Qt5Widgets_DEFINITIONS})
 add_definitions(-DQT_NO_KEYWORDS)
 
-add_library(beedance.tracker SHARED
-        BeeDance.cpp
-        BeeBox.cpp
+add_library(rigidflow.tracker SHARED
+        RigidFlow.cpp
+        FlowBox.cpp
         HoughHash.cpp
         Mask.cpp
         OFTracker.cpp
@@ -76,7 +76,7 @@ add_library(beedance.tracker SHARED
         SingleOFTracker.cpp
 )
 
-target_link_libraries(beedance.tracker
+target_link_libraries(rigidflow.tracker
     ${OpenCV_LIBS}
     ${CPM_LIBRARIES}
 )

@@ -62,7 +62,7 @@ void OFTracker::init(cv::Mat &frame)
 * Initialises mask and HoughHash.
 * Must be called before using the tracker.
 */
-void OFTracker::init(cv::Mat &frame, BeeBox &bb)
+void OFTracker::init(cv::Mat &frame, FlowBox &bb)
 {
     OFTracker::init(frame);
     setMask(bb);
@@ -89,7 +89,7 @@ bool OFTracker::isInitialized() const
 	return initialized;
 }
 
-bool OFTracker::setMask(const BeeBox &bb)
+bool OFTracker::setMask(const FlowBox &bb)
 {
 	if(!initialized) return false;
 	
@@ -179,7 +179,7 @@ void OFTracker::removeOutliers(Points &points, Statuses &status)
 * is performed afterwards.
 * This is where all the interesting stuff either happens or is initiated from.
 */
-void OFTracker::next(cv::Mat &frame, BeeBox &bb)
+void OFTracker::next(cv::Mat &frame, FlowBox &bb)
 {
 	if (!initialized) return;
 
@@ -197,7 +197,7 @@ void OFTracker::next(cv::Mat &frame, BeeBox &bb)
 	//iterate through point moves
 	while(iteratePoints(p1, p2)) 
 	{
-		if (mask.getValue(p1) == INSIDE_BEEBOX && mask.getValue(p2))
+		if (mask.getValue(p1) == INSIDE_FlowBox && mask.getValue(p2))
 		{
 			hough->fill(p1 - center, p2 - center, 1);
 			i++;

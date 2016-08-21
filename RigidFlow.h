@@ -20,10 +20,10 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <ctype.h>
 
-class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
+class RigidFlowTracker : public BioTracker::Core::TrackingAlgorithm {
     Q_OBJECT
   public:
-    BeeDanceTracker(BioTracker::Core::Settings &settings);
+    RigidFlowTracker(BioTracker::Core::Settings &settings);
 
     void track(size_t frameNumber, const cv::Mat &frame) override;
     void paint(size_t frameNumber, BioTracker::Core::ProxyMat &m, View const &view = OriginalView) override;
@@ -48,7 +48,7 @@ class BeeDanceTracker : public BioTracker::Core::TrackingAlgorithm {
   private:
     size_t				        m_currentFrame; // is always the current frame (updated in paint and track)
     cv::Mat                     m_currentImage;
-    bool                        m_tmpBeeBox;
+    bool                        m_tmpFlowBox;
     bool                        m_diff_path;
     // --
     int                         m_futuresteps;

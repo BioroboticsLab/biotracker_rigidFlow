@@ -20,7 +20,7 @@ public:
 	~OverlapOFTracker();
 	void configure(int future_steps, int non_correction_steps, int features, bool ncs_enabled);
 	virtual void init(cv::Mat &frame) override;
-	virtual void init(cv::Mat &frame, BeeBox &bb) override;
+	virtual void init(cv::Mat &frame, FlowBox &bb) override;
 	virtual void reset() override;
 
 protected:
@@ -30,7 +30,7 @@ protected:
 
 private:
 	void deInit();
-	virtual void correct(BeeBox &bb) override;
-	int scoreModel(BeeBox &bb);
-	std::vector<BeeBox> distributeModels(BeeBox &seed);
+	virtual void correct(FlowBox &bb) override;
+	int scoreModel(FlowBox &bb);
+	std::vector<FlowBox> distributeModels(FlowBox &seed);
 };
